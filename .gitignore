@@ -1,0 +1,204 @@
+# =============================================================================
+# Midnight Florist — .gitignore
+# =============================================================================
+# Rule of thumb:
+#   IGNORE:  generated artefacts, secrets, local state, OS noise
+#   COMMIT:  uv.lock, .python-version, .env.example, alembic/versions/,
+#            docker-compose.yml, SETUP.md, source code
+
+
+# =============================================================================
+# Secrets & environment
+# =============================================================================
+# .env contains real credentials — never commit it.
+# .env.example is the safe template and SHOULD be committed.
+.env
+**/.env
+.env.local
+.env.*.local
+*.env
+
+# Key material
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+
+# =============================================================================
+# Python
+# =============================================================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test & coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+*.hypothesis/
+
+# mypy / pyright / pytype
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+
+# =============================================================================
+# uv
+# =============================================================================
+# .venv/ already covered above.
+# uv.lock SHOULD be committed — it guarantees reproducible installs.
+# .python-version SHOULD be committed — pins the interpreter for all devs.
+
+
+# =============================================================================
+# Node / Frontend  (for the React/Vite frontend to be added in Phase 3)
+# =============================================================================
+node_modules/
+.npm/
+.yarn/
+.pnp.*
+.yarn-integrity
+
+# Build output
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+.next/
+
+# Vite / Vitest
+frontend/.vite/
+*.local
+
+# TypeScript build artefacts
+*.tsbuildinfo
+
+
+# =============================================================================
+# Database
+# =============================================================================
+# Local SQLite files (used in tests or quick prototyping)
+*.db
+*.sqlite
+*.sqlite3
+
+# Postgres dumps
+*.sql.gz
+*.dump
+
+
+# =============================================================================
+# Docker
+# =============================================================================
+# Override files usually contain local port/credential overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+
+# =============================================================================
+# IDEs & editors
+# =============================================================================
+# VS Code
+.vscode/
+!.vscode/extensions.json   # allow sharing recommended extensions
+!.vscode/settings.json     # allow sharing project-specific settings
+
+# JetBrains (PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Vim / Emacs
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+
+# =============================================================================
+# macOS
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+*.icloud
+
+
+# =============================================================================
+# Windows
+# =============================================================================
+Thumbs.db
+Thumbs.db:encdata
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+
+# =============================================================================
+# Linux
+# =============================================================================
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+
+# =============================================================================
+# Logs & temp files
+# =============================================================================
+*.log
+logs/
+tmp/
+temp/
+.tmp/
+
+# Jupyter
+.ipynb_checkpoints/
+
+
+# =============================================================================
+# CI/CD artefacts
+# =============================================================================
+.cache/
