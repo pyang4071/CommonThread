@@ -13,6 +13,7 @@ import { Tones } from './pages/Tones'
 import { Tropes } from './pages/Tropes'
 import { Admin } from './pages/Admin'
 import { ArchetypeDetail } from './pages/ArchetypeDetail'
+import { MyTags } from './pages/MyTags'
 import { Shelf } from './pages/Shelf'
 import { TropeDetail } from './pages/TropeDetail'
 import { NotFound } from './pages/NotFound'
@@ -36,6 +37,7 @@ function Header() {
       <nav className="flex gap-1 flex-1">
         <NavLink to="/books" className={navClass}>Books</NavLink>
         {user && <NavLink to="/shelf" className={navClass}>My Shelf</NavLink>}
+        {user && <NavLink to="/my-tags" className={navClass}>My Tags</NavLink>}
         <NavLink to="/tropes" className={navClass}>Tropes</NavLink>
         <NavLink to="/archetypes" className={navClass}>Archetypes</NavLink>
         <NavLink to="/genres" className={navClass}>Genres</NavLink>
@@ -102,6 +104,7 @@ function App() {
           <Route path="/tones" element={<Layout><ProtectedRoute><Tones /></ProtectedRoute></Layout>} />
           <Route path="/admin" element={<Layout><ProtectedRoute><Admin /></ProtectedRoute></Layout>} />
           <Route path="/shelf" element={<Layout><ProtectedRoute><Shelf /></ProtectedRoute></Layout>} />
+          <Route path="/my-tags" element={<Layout><ProtectedRoute><MyTags /></ProtectedRoute></Layout>} />
           <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>
       </AuthProvider>

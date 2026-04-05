@@ -168,6 +168,8 @@ export function Books() {
   const [page, setPage] = useSessionState('books:page', 0)
   const [myRatings, setMyRatings] = useState<Record<number, number>>({})
   const [ratingTarget, setRatingTarget] = useState<Book | null>(null)
+  const [shelfMap, setShelfMap] = useState<Record<number, StatusValue>>({})
+  const [shelfVersion, setShelfVersion] = useState(0)
 
   // Panel visibility — persisted so panels stay open on return
   const [filtersOpen, setFiltersOpen] = useSessionState('books:filtersOpen', false)
@@ -301,9 +303,6 @@ export function Books() {
     setShelfFilter(undefined)
     setSemanticResults(null); setPromptInput(''); setSemanticError(null)
   }
-
-  const [shelfMap, setShelfMap] = useState<Record<number, StatusValue>>({})
-  const [shelfVersion, setShelfVersion] = useState(0)
 
   useEffect(() => {
     if (!session) { setShelfMap({}); return }
@@ -654,6 +653,7 @@ export function Books() {
               )}
               <Table
                 data={books.slice(0, PAGE_SIZE)}
+                rowKey={(b) => b.book_id}
                 onDelete={remove}
                 deleteLabel={(b) => b.title}
                 columns={[

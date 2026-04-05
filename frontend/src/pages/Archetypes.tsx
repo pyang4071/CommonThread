@@ -57,6 +57,7 @@ export function Archetypes() {
 
       <Table
         data={archetypes}
+        rowKey={(a) => a.archetype_id}
         onDelete={isAdmin ? remove : undefined}
         deleteLabel={(a) => a.name}
         columns={[

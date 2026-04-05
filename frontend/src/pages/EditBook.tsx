@@ -110,7 +110,7 @@ export function EditBook() {
         setPubDate(book.publication_date ?? '')
         setDescription(book.description ?? '')
         setPacing(book.pacing ?? null)
-        setSeriesName(book.series_name ?? '')
+        setSeriesName(book.series?.name ?? '')
         setSeriesPosition(book.series_position != null ? String(book.series_position) : '')
 
         setSelectedTropes(

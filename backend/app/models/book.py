@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.book_type import BookType
     from app.models.character_dna import CharacterDNA
     from app.models.genre import Genre
+    from app.models.series import Series
     from app.models.tone import Tone
 
 
@@ -26,15 +27,22 @@ class Book(Base):
     publication_date: Mapped[date | None]
     description: Mapped[str | None]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
     pacing: Mapped[int | None] = mapped_column(nullable=True)
     cover_url: Mapped[str | None] = mapped_column(nullable=True)
     genome_embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
     description_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     embedding_status: Mapped[str] = mapped_column(default="pending", server_default="pending")
-    series_name: Mapped[str | None] = mapped_column(nullable=True)
+    series_id: Mapped[int | None] = mapped_column(
+        ForeignKey("series.series_id", ondelete="SET NULL"), nullable=True
+    )
     series_position: Mapped[int | None] = mapped_column(nullable=True)
 
     author: Mapped["Author"] = relationship(back_populates="books", lazy="joined")
+    series: Mapped["Series | None"] = relationship(back_populates="books", lazy="joined")
     book_tropes: Mapped[list["BookTrope"]] = relationship(
         back_populates="book", cascade="all, delete-orphan"
     )

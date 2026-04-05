@@ -61,6 +61,7 @@ export function Tropes() {
 
       <Table
         data={tropes}
+        rowKey={(t) => t.trope_id}
         onDelete={isAdmin ? remove : undefined}
         deleteLabel={(t) => t.name}
         columns={[

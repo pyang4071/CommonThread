@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Book, BookDetail as BookDetailType, Review, SimilarBook } from '../api/client'
+import type { Archetype, Book, BookDetail as BookDetailType, Review, SimilarBook, Trope, UserTags } from '../api/client'
 import { RatingModal } from '../components/RatingModal'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
@@ -46,6 +46,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 export function BookDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { state } = useLocation()
+  const backTo: string = state?.from ?? '/books'
+  const backLabel = backTo === '/shelf' ? '← Back to Shelf' : '← Back to Books'
   const { session } = useAuth()
   const [book, setBook] = useState<BookDetailType | null>(null)
   const [similar, setSimilar] = useState<SimilarBook[]>([])
@@ -59,6 +62,14 @@ export function BookDetail() {
   const [dislikeLoading, setDislikeLoading] = useState(false)
   const [reviews, setReviews] = useState<Review[]>([])
   const [seriesBooks, setSeriesBooks] = useState<Book[]>([])
+  const [myTags, setMyTags] = useState<UserTags>({ tropes: [], archetypes: [] })
+  const [allTropes, setAllTropes] = useState<Trope[]>([])
+  const [allArchetypes, setAllArchetypes] = useState<Archetype[]>([])
+  const [addTropeId, setAddTropeId] = useState<number | ''>('')
+  const [addTropeWeight, setAddTropeWeight] = useState(0.8)
+  const [addArchetypeId, setAddArchetypeId] = useState<number | ''>('')
+  const [addArchetypeImportance, setAddArchetypeImportance] = useState(7)
+  const [tagSaving, setTagSaving] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -85,7 +96,57 @@ export function BookDetail() {
     api.dislikes.get(bookId, session.access_token)
       .then(r => setDisliked(r.disliked))
       .catch(() => {})
+    api.myTags.get(bookId, session.access_token)
+      .then(setMyTags)
+      .catch(() => {})
+    api.tropes.list().then(setAllTropes).catch(() => {})
+    api.archetypes.list().then(setAllArchetypes).catch(() => {})
   }, [id, session])
+
+  const taggedTropeIds = new Set(myTags.tropes.map(t => t.trope.trope_id))
+  const taggedArchetypeIds = new Set(myTags.archetypes.map(a => a.archetype.archetype_id))
+
+  const handleAddTrope = async () => {
+    if (!session || !id || addTropeId === '') return
+    setTagSaving(true)
+    try {
+      const entry = await api.myTags.addTrope(Number(id), addTropeId, addTropeWeight, session.access_token)
+      setMyTags(prev => ({
+        ...prev,
+        tropes: [...prev.tropes.filter(t => t.trope.trope_id !== addTropeId), entry],
+      }))
+      setAddTropeId('')
+    } finally {
+      setTagSaving(false)
+    }
+  }
+
+  const handleRemoveTrope = async (tropeId: number) => {
+    if (!session || !id) return
+    await api.myTags.removeTrope(Number(id), tropeId, session.access_token)
+    setMyTags(prev => ({ ...prev, tropes: prev.tropes.filter(t => t.trope.trope_id !== tropeId) }))
+  }
+
+  const handleAddArchetype = async () => {
+    if (!session || !id || addArchetypeId === '') return
+    setTagSaving(true)
+    try {
+      const entry = await api.myTags.addArchetype(Number(id), addArchetypeId, addArchetypeImportance, session.access_token)
+      setMyTags(prev => ({
+        ...prev,
+        archetypes: [...prev.archetypes.filter(a => a.archetype.archetype_id !== addArchetypeId), entry],
+      }))
+      setAddArchetypeId('')
+    } finally {
+      setTagSaving(false)
+    }
+  }
+
+  const handleRemoveArchetype = async (archetypeId: number) => {
+    if (!session || !id) return
+    await api.myTags.removeArchetype(Number(id), archetypeId, session.access_token)
+    setMyTags(prev => ({ ...prev, archetypes: prev.archetypes.filter(a => a.archetype.archetype_id !== archetypeId) }))
+  }
 
   const toggleDislike = async () => {
     if (!session || !id) return
@@ -151,8 +212,8 @@ export function BookDetail() {
     <div className="space-y-8">
       {/* Back */}
       <div className="flex items-center justify-between">
-        <Link to="/books" className="text-sm text-indigo-600 hover:underline">
-          ← Back to Books
+        <Link to={backTo} className="text-sm text-indigo-600 hover:underline">
+          {backLabel}
         </Link>
         <button
           onClick={() => navigate(`/books/${id}/edit`)}
@@ -175,9 +236,9 @@ export function BookDetail() {
         <h1 className="text-3xl font-bold text-gray-900">{book.title}</h1>
         <p className="mt-1 text-lg text-gray-500">{book.author.name}</p>
         <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-400 items-center">
-          {book.series_name && (
+          {book.series && (
             <span className="text-indigo-600 font-medium">
-              {book.series_position != null ? `Book ${book.series_position} of ` : ''}{book.series_name}
+              {book.series_position != null ? `Book ${book.series_position} of ` : ''}{book.series.name}
             </span>
           )}
           {book.publication_date && (
@@ -346,10 +407,117 @@ export function BookDetail() {
         </div>
       </div>
 
+      {/* Your Tags */}
+      {session && (
+        <div className="border border-indigo-100 rounded-xl p-5 bg-indigo-50/40">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1">Your Tags</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Your personal take on this book — used only to improve your recommendations.
+          </p>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Personal tropes */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Tropes</h3>
+              {myTags.tropes.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {myTags.tropes.map(({ trope, weight }) => (
+                    <div key={trope.trope_id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                      <span className="text-sm text-gray-800 flex-1">{trope.name}</span>
+                      <WeightBar value={weight} />
+                      <button
+                        onClick={() => handleRemoveTrope(trope.trope_id)}
+                        className="text-gray-400 hover:text-red-500 text-xs ml-1"
+                        title="Remove"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <select
+                  value={addTropeId}
+                  onChange={e => setAddTropeId(e.target.value ? Number(e.target.value) : '')}
+                  className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white"
+                >
+                  <option value="">Add a trope…</option>
+                  {allTropes
+                    .filter(t => !taggedTropeIds.has(t.trope_id))
+                    .map(t => (
+                      <option key={t.trope_id} value={t.trope_id}>{t.name}</option>
+                    ))}
+                </select>
+                <input
+                  type="range" min={0} max={1} step={0.05}
+                  value={addTropeWeight}
+                  onChange={e => setAddTropeWeight(Number(e.target.value))}
+                  className="w-20"
+                  title={`Weight: ${Math.round(addTropeWeight * 100)}%`}
+                />
+                <span className="text-xs text-gray-500 w-8">{Math.round(addTropeWeight * 100)}%</span>
+                <button
+                  onClick={handleAddTrope}
+                  disabled={addTropeId === '' || tagSaving}
+                  className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
+                >Add</button>
+              </div>
+            </div>
+
+            {/* Personal archetypes */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Character Archetypes</h3>
+              {myTags.archetypes.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {myTags.archetypes.map(({ archetype, importance }) => (
+                    <div key={archetype.archetype_id} className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 border border-indigo-100">
+                      <span className="text-sm text-gray-800 flex-1">{archetype.name}</span>
+                      <ImportanceDots value={importance} />
+                      <span className="text-xs text-gray-400 ml-1">{importance}/10</span>
+                      <button
+                        onClick={() => handleRemoveArchetype(archetype.archetype_id)}
+                        className="text-gray-400 hover:text-red-500 text-xs ml-1"
+                        title="Remove"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2 items-center">
+                <select
+                  value={addArchetypeId}
+                  onChange={e => setAddArchetypeId(e.target.value ? Number(e.target.value) : '')}
+                  className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white"
+                >
+                  <option value="">Add an archetype…</option>
+                  {allArchetypes
+                    .filter(a => !taggedArchetypeIds.has(a.archetype_id))
+                    .map(a => (
+                      <option key={a.archetype_id} value={a.archetype_id}>{a.name}</option>
+                    ))}
+                </select>
+                <input
+                  type="range" min={1} max={10} step={1}
+                  value={addArchetypeImportance}
+                  onChange={e => setAddArchetypeImportance(Number(e.target.value))}
+                  className="w-20"
+                  title={`Importance: ${addArchetypeImportance}/10`}
+                />
+                <span className="text-xs text-gray-500 w-8">{addArchetypeImportance}/10</span>
+                <button
+                  onClick={handleAddArchetype}
+                  disabled={addArchetypeId === '' || tagSaving}
+                  className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
+                >Add</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Series */}
-      {seriesBooks.length > 1 && book.series_name && (
+      {seriesBooks.length > 1 && book.series && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">{book.series_name}</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">{book.series.name}</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {seriesBooks.map(sb => (
               <Link
