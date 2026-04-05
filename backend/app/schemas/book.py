@@ -7,6 +7,7 @@ from app.schemas.archetype import ArchetypeRead
 from app.schemas.author import AuthorRead
 from app.schemas.book_type import BookTypeRead
 from app.schemas.genre import GenreRead
+from app.schemas.series import SeriesRead
 from app.schemas.tone import ToneRead
 from app.schemas.trope import TropeRead
 
@@ -31,12 +32,12 @@ class BookBase(BaseModel):
     publication_date: date | None = None
     description: str | None = None
     pacing: int | None = None
-    series_name: str | None = None
     series_position: int | None = None
 
 
 class BookCreate(BookBase):
     author: str  # name string — backend resolves to author_id via get_or_create
+    series_name: str | None = None  # resolved to series_id via get_or_create
 
 
 class BookUpdate(BaseModel):
@@ -46,15 +47,17 @@ class BookUpdate(BaseModel):
     publication_date: date | None = None
     description: str | None = None
     pacing: int | None = None
-    series_name: str | None = None
+    series_name: str | None = None  # resolved to series_id via get_or_create
     series_position: int | None = None
 
 
 class BookRead(BookBase):
     book_id: int
     author: AuthorRead
+    series: SeriesRead | None = None
     cover_url: str | None = None
     created_at: datetime
+    updated_at: datetime
     embedding_status: str = "pending"
 
     model_config = {"from_attributes": True}

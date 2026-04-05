@@ -54,6 +54,7 @@ export function BookTypes() {
 
       <Table
         data={bookTypes}
+        rowKey={(bt) => bt.book_type_id}
         onDelete={isAdmin ? remove : undefined}
         deleteLabel={(bt) => bt.name}
         columns={[

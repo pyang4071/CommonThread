@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections import defaultdict
+from datetime import datetime, UTC
 
 import numpy as np
 from pgvector.sqlalchemy import Vector
@@ -12,6 +13,7 @@ from app.models.book_rating import BookRating
 from app.models.reading_status import ReadingStatus
 
 from app.crud.author import get_or_create as get_or_create_author
+from app.crud.series import get_or_create as get_or_create_series
 from app.models.author import Author
 from app.models.book import Book
 from app.models.book_book_type import book_book_types
@@ -28,14 +30,16 @@ type Explanation = dict[str, list[str]]
 
 
 async def get_book(db: AsyncSession, book_id: int) -> Book | None:
-    result = await db.execute(select(Book).where(Book.book_id == book_id))
+    result = await db.execute(
+        select(Book).where(Book.book_id == book_id, Book.deleted_at.is_(None))
+    )
     return result.scalar_one_or_none()
 
 
 async def get_book_detail(db: AsyncSession, book_id: int) -> Book | None:
     result = await db.execute(
         select(Book)
-        .where(Book.book_id == book_id)
+        .where(Book.book_id == book_id, Book.deleted_at.is_(None))
         .options(
             selectinload(Book.book_tropes).selectinload(BookTrope.trope),
             selectinload(Book.character_dna).selectinload(CharacterDNA.archetype),
@@ -62,7 +66,7 @@ async def list_books(
     shelf_status: str | None = None,
     user_id: uuid.UUID | None = None,
 ) -> list[Book]:
-    stmt = select(Book).distinct()
+    stmt = select(Book).distinct().where(Book.deleted_at.is_(None))
     if search:
         author_ids_subq = (
             select(Author.author_id)
@@ -135,18 +139,27 @@ async def list_books(
 
 
 async def list_books_by_author_id(db: AsyncSession, author_id: int) -> list[Book]:
-    result = await db.execute(select(Book).where(Book.author_id == author_id))
+    result = await db.execute(
+        select(Book).where(Book.author_id == author_id, Book.deleted_at.is_(None))
+    )
     return list(result.scalars().all())
 
 
 async def create_book(db: AsyncSession, data: BookCreate) -> Book:
     author = await get_or_create_author(db, data.author)
+    series_id = None
+    if data.series_name:
+        series = await get_or_create_series(db, data.series_name)
+        series_id = series.series_id
     book = Book(
         title=data.title,
         author_id=author.author_id,
         isbn=data.isbn,
         publication_date=data.publication_date,
         description=data.description,
+        pacing=data.pacing,
+        series_id=series_id,
+        series_position=data.series_position,
     )
     db.add(book)
     await db.commit()
@@ -158,7 +171,12 @@ async def update_book(db: AsyncSession, book: Book, data: BookUpdate) -> Book:
     if data.author is not None:
         author = await get_or_create_author(db, data.author)
         book.author_id = author.author_id
-    for field, value in data.model_dump(exclude_none=True, exclude={"author"}).items():
+    if data.series_name is not None:
+        series = await get_or_create_series(db, data.series_name)
+        book.series_id = series.series_id
+    for field, value in data.model_dump(
+        exclude_none=True, exclude={"author", "series_name"}
+    ).items():
         setattr(book, field, value)
     await db.commit()
     await db.refresh(book)
@@ -166,7 +184,7 @@ async def update_book(db: AsyncSession, book: Book, data: BookUpdate) -> Book:
 
 
 async def delete_book(db: AsyncSession, book: Book) -> None:
-    await db.delete(book)
+    book.deleted_at = datetime.now(UTC).replace(tzinfo=None)
     await db.commit()
 
 
@@ -268,10 +286,10 @@ async def detach_tone(db: AsyncSession, book_id: int, tone_id: int) -> bool:
     return result.rowcount > 0
 
 
-async def get_books_in_series(db: AsyncSession, series_name: str) -> list[Book]:
+async def get_books_in_series(db: AsyncSession, series_id: int) -> list[Book]:
     result = await db.execute(
         select(Book)
-        .where(Book.series_name == series_name)
+        .where(Book.series_id == series_id, Book.deleted_at.is_(None))
         .order_by(Book.series_position.asc().nullslast())
     )
     return list(result.scalars().all())
@@ -321,6 +339,9 @@ async def get_recommendations_for_user(
         return []
 
     # ── 3. Build preference vector ────────────────────────────────────────────
+    from app.crud.user_tags import get_aggregated_taste
+    from app.services.embedding import embed_user_taste
+
     emb_q = await db.execute(
         select(Book.genome_embedding)
         .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
@@ -330,11 +351,18 @@ async def get_recommendations_for_user(
         return []
     preference = np.mean(embeddings, axis=0)
 
+    # ── 3b. Blend user taste vector (personal tags) at 30% weight ────────────
+    taste_tropes, taste_archetypes = await get_aggregated_taste(db, user_id)
+    if taste_tropes or taste_archetypes:
+        taste_vec = await embed_user_taste(taste_tropes, taste_archetypes)
+        if taste_vec is not None:
+            preference = 0.7 * preference + 0.3 * np.array(taste_vec)
+
     # ── 4. Embedding candidates (over-fetch for diversity + dislike filtering) ─
     fetch_n = limit * 5
     emb_stmt = (
         select(Book, Book.genome_embedding.cosine_distance(preference).label("distance"))
-        .where(Book.genome_embedding.is_not(None))
+        .where(Book.genome_embedding.is_not(None), Book.deleted_at.is_(None))
         .order_by("distance")
         .limit(fetch_n)
     )
@@ -404,24 +432,24 @@ async def get_recommendations_for_user(
     # For books with series_position > 1, only include them if the user has
     # already read/shelved any book from the same series.
     series_candidates = [
-        (b, s) for b, s in emb_picks if b.series_name and b.series_position and b.series_position > 1
+        (b, s) for b, s in emb_picks if b.series_id and b.series_position and b.series_position > 1
     ]
     if series_candidates:
-        all_series_names = list({b.series_name for b, _ in series_candidates})
+        all_series_ids = list({b.series_id for b, _ in series_candidates if b.series_id})
         user_series_q = await db.execute(
-            select(Book.series_name)
+            select(Book.series_id)
             .join(ReadingStatus, Book.book_id == ReadingStatus.book_id)
             .where(
                 ReadingStatus.user_id == user_id,
-                Book.series_name.in_(all_series_names),
+                Book.series_id.in_(all_series_ids),
             )
             .distinct()
         )
-        user_started_series = set(user_series_q.scalars().all())
+        user_started_series_ids = set(user_series_q.scalars().all())
         emb_picks = [
             (b, s) for b, s in emb_picks
-            if not (b.series_name and b.series_position and b.series_position > 1
-                    and b.series_name not in user_started_series)
+            if not (b.series_id and b.series_position and b.series_position > 1
+                    and b.series_id not in user_started_series_ids)
         ]
 
     # ── 7. Collaborative filtering ────────────────────────────────────────────
@@ -562,7 +590,7 @@ async def get_similar_books(
         await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
         emb_result = await db.execute(
             select(Book, Book.genome_embedding.cosine_distance(book.genome_embedding).label("distance"))
-            .where(Book.book_id != book_id)
+            .where(Book.book_id != book_id, Book.deleted_at.is_(None))
             .where(Book.genome_embedding.is_not(None))
             .order_by("distance")
             .limit(limit * 4)
@@ -571,7 +599,9 @@ async def get_similar_books(
         candidate_books = {row.Book.book_id: row.Book for row in rows}
         emb_scores: dict[int, float] = {row.Book.book_id: 1 - row.distance for row in rows}
     else:
-        all_result = await db.execute(select(Book).where(Book.book_id != book_id))
+        all_result = await db.execute(
+            select(Book).where(Book.book_id != book_id, Book.deleted_at.is_(None))
+        )
         all_books = list(all_result.scalars())
         candidate_books = {b.book_id: b for b in all_books}
         emb_scores = {b.book_id: 0.0 for b in all_books}

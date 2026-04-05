@@ -13,7 +13,8 @@ class Author(Base):
     __tablename__ = "authors"
 
     author_id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(unique=True)
+    name: Mapped[str]
+    bio: Mapped[str | None] = mapped_column(nullable=True)
 
     books: Mapped[list["Book"]] = relationship(back_populates="author")
 

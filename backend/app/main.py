@@ -5,8 +5,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database.engine import engine
-from app.routers import admin, archetypes, book_types, books, genres, recommendations, search, tones, tropes, users
+from app.routers import admin, archetypes, book_types, books, genres, recommendations, search, series, tones, tropes, users
 from app.routers.dislikes import router as dislikes_router
+from app.routers.user_tags import router as user_tags_router
 from app.routers.ratings import ratings_router, router as ratings_books_router
 from app.routers.reading_status import router as reading_status_books_router, shelf_router
 
@@ -41,6 +42,7 @@ app.include_router(tropes.router, prefix=API_PREFIX)
 app.include_router(archetypes.router, prefix=API_PREFIX)
 app.include_router(recommendations.router, prefix=API_PREFIX)
 app.include_router(search.router, prefix=API_PREFIX)
+app.include_router(series.router, prefix=API_PREFIX)
 app.include_router(tones.router, prefix=API_PREFIX)
 app.include_router(ratings_books_router, prefix=API_PREFIX)
 app.include_router(ratings_router, prefix=API_PREFIX)
@@ -49,6 +51,7 @@ app.include_router(admin.router, prefix=API_PREFIX)
 app.include_router(reading_status_books_router, prefix=API_PREFIX)
 app.include_router(shelf_router, prefix=API_PREFIX)
 app.include_router(dislikes_router, prefix=API_PREFIX)
+app.include_router(user_tags_router, prefix=API_PREFIX)
 
 
 @app.get("/health")

@@ -125,9 +125,9 @@ async def update_book(book_id: int, data: BookUpdate, db: AsyncSession = Depends
 @router.get("/{book_id}/series", response_model=list[BookRead])
 async def get_series(book_id: int, db: AsyncSession = Depends(get_db)):
     book = await crud.book.get_book(db, book_id)
-    if not book or not book.series_name:
+    if not book or not book.series_id:
         return []
-    return await crud.book.get_books_in_series(db, book.series_name)
+    return await crud.book.get_books_in_series(db, book.series_id)
 
 
 @router.delete("/{book_id}", status_code=204)

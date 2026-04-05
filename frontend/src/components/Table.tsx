@@ -9,11 +9,12 @@ type Column<T> = {
 type Props<T> = {
   columns: Column<T>[]
   data: T[]
+  rowKey: (row: T) => string | number
   onDelete?: (row: T) => void
   deleteLabel?: (row: T) => string  // used in the confirmation message
 }
 
-export function Table<T>({ columns, data, onDelete, deleteLabel }: Props<T>) {
+export function Table<T>({ columns, data, rowKey, onDelete, deleteLabel }: Props<T>) {
   const [pending, setPending] = useState<T | null>(null)
 
   const handleDeleteClick = (row: T) => setPending(row)
@@ -64,8 +65,8 @@ export function Table<T>({ columns, data, onDelete, deleteLabel }: Props<T>) {
                 </td>
               </tr>
             ) : (
-              data.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50">
+              data.map((row) => (
+                <tr key={rowKey(row)} className="hover:bg-gray-50">
                   {columns.map((col) => (
                     <td key={col.header} className="px-4 py-3 text-gray-700">
                       {col.accessor(row) ?? <span className="text-gray-300">—</span>}

@@ -132,6 +132,57 @@ async def _run_batch(texts: list[str], model_getter) -> list[list[float]]:
     return await loop.run_in_executor(None, _encode_batch, texts, model_getter)
 
 
+def build_user_taste_genome(
+    tropes: list[tuple[str, float]],
+    archetypes: list[tuple[str, int]],
+) -> str:
+    """
+    Build a genome string representing a user's aggregated personal taste.
+
+    tropes     — list of (trope_name, avg_weight)
+    archetypes — list of (archetype_name, avg_importance)
+
+    The resulting string is embedded with the genome model so it sits in the
+    same vector space as book genome embeddings, enabling direct comparison.
+    """
+    parts: list[str] = ["Reading preferences."]
+
+    if tropes:
+        def _strength(w: float) -> str:
+            if w >= 0.8:
+                return "dominant"
+            if w >= 0.6:
+                return "strong"
+            if w >= 0.4:
+                return "moderate"
+            return "subtle"
+
+        trope_phrases = [
+            f"'{name}' ({w:.2f}, {_strength(w)})" for name, w in tropes
+        ]
+        parts.append("Preferred tropes: " + ", ".join(trope_phrases) + ".")
+
+    if archetypes:
+        arch_phrases = [f"'{name}' ({imp}/10)" for name, imp in archetypes]
+        parts.append("Preferred character archetypes: " + ", ".join(arch_phrases) + ".")
+
+    return " ".join(parts)
+
+
+async def embed_user_taste(
+    tropes: list[tuple[str, float]],
+    archetypes: list[tuple[str, int]],
+) -> list[float] | None:
+    """
+    Embed the user's aggregated personal taste into the genome vector space.
+    Returns None if the user has no personal tags.
+    """
+    if not tropes and not archetypes:
+        return None
+    genome_str = build_user_taste_genome(tropes, archetypes)
+    return await _run(genome_str, _get_genome_model)
+
+
 async def embed_query(text: str) -> tuple[list[float], list[float]]:
     """
     Encode a user search query for both streams.

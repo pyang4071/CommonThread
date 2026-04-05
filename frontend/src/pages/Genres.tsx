@@ -54,6 +54,7 @@ export function Genres() {
 
       <Table
         data={genres}
+        rowKey={(g) => g.genre_id}
         onDelete={isAdmin ? remove : undefined}
         deleteLabel={(g) => g.name}
         columns={[

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,7 @@ async def upsert_status(
     db: AsyncSession, user_id: uuid.UUID, book_id: int, status: str
 ) -> ReadingStatus:
     entry = await get_status(db, user_id, book_id)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC).replace(tzinfo=None)
     if entry:
         entry.status = status
         entry.updated_at = now

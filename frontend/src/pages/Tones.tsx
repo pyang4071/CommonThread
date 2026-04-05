@@ -49,6 +49,7 @@ export function Tones() {
 
       <Table
         data={tones}
+        rowKey={(t) => t.tone_id}
         onDelete={isAdmin ? remove : undefined}
         deleteLabel={(t) => t.name}
         columns={[

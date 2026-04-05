@@ -36,10 +36,9 @@ interface Props {
 export function ReadingStatusButton({ bookId, token, initial = null, onChange }: Props) {
   const [status, setStatus] = useState<StatusValue | null>(initial)
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setStatus(initial ?? null) }, [initial])
+  useEffect(() => { if (initial != null) setStatus(initial) }, [initial])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -51,17 +50,18 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
 
   const apply = async (next: StatusValue | null) => {
     setOpen(false)
-    setLoading(true)
+    const prev = status
+    setStatus(next)
+    onChange?.(next)
     try {
       if (next === null) {
         await api.shelf.remove(bookId, token)
       } else {
         await api.shelf.set(bookId, next, token)
       }
-      setStatus(next)
-      onChange?.(next)
-    } finally {
-      setLoading(false)
+    } catch {
+      setStatus(prev)
+      onChange?.(prev)
     }
   }
 
@@ -73,8 +73,7 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
       {cfg ? (
         <button
           onClick={() => setOpen(o => !o)}
-          disabled={loading}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors disabled:opacity-50 ${cfg.chip} ${cfg.hover}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${cfg.chip} ${cfg.hover}`}
         >
           <span>{cfg.icon}</span>
           <span>{cfg.label}</span>
@@ -83,10 +82,9 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
       ) : (
         <button
           onClick={() => setOpen(o => !o)}
-          disabled={loading}
-          className="px-3 py-1.5 rounded-full text-sm font-medium text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-700 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 rounded-full text-sm font-medium text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-700 transition-colors"
         >
-          {loading ? '…' : '+ Add to shelf'}
+          + Add to shelf
         </button>
       )}
 

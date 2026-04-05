@@ -50,6 +50,34 @@ export type AppUser = {
   email: string
   created_at: string
   is_admin: boolean
+  onboarding_completed: boolean
+}
+
+export type Series = {
+  series_id: number
+  name: string
+  description: string | null
+}
+
+export type UserTrope = {
+  trope: Trope
+  weight: number
+}
+
+export type UserArchetype = {
+  archetype: Archetype
+  importance: number
+}
+
+export type UserTags = {
+  tropes: UserTrope[]
+  archetypes: UserArchetype[]
+}
+
+export type BookTagsEntry = {
+  book: Book
+  tropes: UserTrope[]
+  archetypes: UserArchetype[]
 }
 
 export type Author = {
@@ -72,8 +100,9 @@ export type Book = {
   pacing: number | null
   cover_url: string | null
   created_at: string
+  updated_at: string
   embedding_status: 'pending' | 'done' | 'failed'
-  series_name: string | null
+  series: Series | null
   series_position: number | null
 }
 
@@ -291,7 +320,10 @@ export const api = {
         .then(r => r.status === 200 ? r.json() as Promise<ReadingStatus> : null),
     set: (bookId: number, status: string, token: string) =>
       authedFetch('PUT', `/books/${bookId}/reading-status`, token, { status })
-        .then(r => r.json() as Promise<ReadingStatus>),
+        .then(async r => {
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+          return r.json() as Promise<ReadingStatus>
+        }),
     remove: (bookId: number, token: string) =>
       authedFetch('DELETE', `/books/${bookId}/reading-status`, token)
         .then(r => { if (!r.ok && r.status !== 404) throw new Error(`${r.status}`) }),
@@ -299,6 +331,8 @@ export const api = {
   users: {
     me: (token: string) =>
       authedFetch('GET', '/users/me', token).then(r => r.json() as Promise<AppUser>),
+    myTags: (token: string) =>
+      authedFetch('GET', '/users/me/tags', token).then(r => r.json() as Promise<BookTagsEntry[]>),
   },
   admin: {
     embedStatus: (token: string) =>
@@ -316,6 +350,35 @@ export const api = {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         return r.json() as Promise<{ queued: number }>
       }),
+  },
+  myTags: {
+    get: (bookId: number, token: string) =>
+      authedFetch('GET', `/books/${bookId}/my-tags`, token).then(r => r.json() as Promise<UserTags>),
+    addTrope: (bookId: number, tropeId: number, weight: number, token: string) =>
+      authedFetch('POST', `/books/${bookId}/my-tags/tropes`, token, { trope_id: tropeId, weight })
+        .then(async r => {
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+          return r.json() as Promise<UserTrope>
+        }),
+    removeTrope: (bookId: number, tropeId: number, token: string) =>
+      authedFetch('DELETE', `/books/${bookId}/my-tags/tropes/${tropeId}`, token)
+        .then(r => { if (!r.ok) throw new Error(`${r.status}`) }),
+    addArchetype: (bookId: number, archetypeId: number, importance: number, token: string) =>
+      authedFetch('POST', `/books/${bookId}/my-tags/archetypes`, token, { archetype_id: archetypeId, importance })
+        .then(async r => {
+          if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+          return r.json() as Promise<UserArchetype>
+        }),
+    removeArchetype: (bookId: number, archetypeId: number, token: string) =>
+      authedFetch('DELETE', `/books/${bookId}/my-tags/archetypes/${archetypeId}`, token)
+        .then(r => { if (!r.ok) throw new Error(`${r.status}`) }),
+  },
+  series: {
+    list: () => get<Series[]>('/series/'),
+    get: (id: number) => get<Series>(`/series/${id}`),
+    create: (data: { name: string; description?: string | null }) => post<Series>('/series/', data),
+    update: (id: number, data: { name: string; description?: string | null }) => put<Series>(`/series/${id}`, data),
+    delete: (id: number) => del(`/series/${id}`),
   },
   search: {
     semantic: (q: string, limit = 10, alpha = 0.7, filters?: {

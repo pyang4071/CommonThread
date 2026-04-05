@@ -20,7 +20,7 @@ function BookCover({ entry, token, onChange }: {
   const { book } = entry
   return (
     <div className="flex flex-col gap-2">
-      <Link to={`/books/${book.book_id}`} className="group block">
+      <Link to={`/books/${book.book_id}`} state={{ from: '/shelf' }} className="group block">
         {book.cover_url ? (
           <img
             src={book.cover_url}
