@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import case, select, text
+from sqlalchemy import case, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.book import Book
 from app.models.book_book_type import book_book_types
 from app.models.book_genre import book_genres
+from app.models.book_rating import BookRating
 from app.models.book_tone import book_tones
 from app.models.book_trope import BookTrope
 from app.models.character_dna import CharacterDNA
@@ -112,7 +113,21 @@ async def semantic_search(
 
     await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
     result = await db.execute(stmt.order_by("distance").limit(limit))
-    return [
-        SearchResult(book=row.Book, score=round(1 - row.distance, 4))
-        for row in result.all()
-    ]
+    rows = result.all()
+
+    book_ids = [row.Book.book_id for row in rows]
+    avg_map: dict[int, float] = {}
+    if book_ids:
+        avg_q = await db.execute(
+            select(BookRating.book_id, func.avg(BookRating.rating).label("avg_rating"))
+            .where(BookRating.book_id.in_(book_ids))
+            .group_by(BookRating.book_id)
+        )
+        avg_map = {r.book_id: round(float(r.avg_rating), 2) for r in avg_q}
+
+    out = []
+    for row in rows:
+        book_read = BookRead.model_validate(row.Book)
+        book_read.avg_rating = avg_map.get(row.Book.book_id)
+        out.append(SearchResult(book=book_read, score=round(1 - row.distance, 4)))
+    return out

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Book, BookType, Genre, SimilarBook, Tone, Trope } from '../api/client'
 import { Table } from '../components/Table'
-import { RatingModal } from '../components/RatingModal'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
 import { useAuth } from '../contexts/AuthContext'
@@ -35,26 +34,6 @@ function ExcludeChip({ name, onRemove }: { name: string; onRemove: () => void })
       {name}
       <button type="button" onClick={onRemove} className="hover:text-red-900 leading-none">×</button>
     </span>
-  )
-}
-
-function RateButton({ book, ratings, onOpen }: {
-  book: Book
-  ratings: Record<number, number>
-  onOpen: (book: Book) => void
-}) {
-  const rating = ratings[book.book_id] ?? null
-  return (
-    <button
-      onClick={() => onOpen(book)}
-      className={
-        rating != null
-          ? 'flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 transition-colors'
-          : 'px-2.5 py-1 rounded-full text-xs font-medium text-gray-400 border border-gray-200 hover:bg-gray-50 hover:text-gray-600 transition-colors'
-      }
-    >
-      {rating != null ? <>★ {rating}/5</> : '+ Rate'}
-    </button>
   )
 }
 
@@ -166,8 +145,6 @@ export function Books() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useSessionState('books:page', 0)
-  const [myRatings, setMyRatings] = useState<Record<number, number>>({})
-  const [ratingTarget, setRatingTarget] = useState<Book | null>(null)
   const [shelfMap, setShelfMap] = useState<Record<number, StatusValue>>({})
   const [shelfVersion, setShelfVersion] = useState(0)
 
@@ -225,15 +202,6 @@ export function Books() {
     api.tropes.list().then(setAllTropes).catch(() => {})
     api.archetypes.list().then(setAllArchetypes).catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (!session) { setMyRatings({}); return }
-    api.ratings.myRatings(session.access_token).then(ratings => {
-      const map: Record<number, number> = {}
-      for (const r of ratings) map[r.book_id] = r.rating
-      setMyRatings(map)
-    }).catch(() => {})
-  }, [session])
 
   const filterKey = [
     search,
@@ -325,30 +293,11 @@ export function Books() {
     }).then(setBooks).catch(() => {})
   }
 
-  const handleRate = (bookId: number, rating: number | null) => {
-    setMyRatings(prev => {
-      const next = { ...prev }
-      if (rating === null) delete next[bookId]
-      else next[bookId] = rating
-      return next
-    })
-  }
-
   const hasAnything = activeFilterCount > 0 || search || semanticResults
 
   // ── render ──
   return (
     <div className="space-y-4">
-      {session && ratingTarget && (
-        <RatingModal
-          book={ratingTarget}
-          currentRating={myRatings[ratingTarget.book_id] ?? null}
-          token={session.access_token}
-          onClose={() => setRatingTarget(null)}
-          onRate={handleRate}
-        />
-      )}
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800">Books</h1>
@@ -604,11 +553,17 @@ export function Books() {
                   {book.description && (
                     <p className="text-xs text-gray-400 line-clamp-2">{book.description}</p>
                   )}
-                  {session && (
-                    <div className="pt-1 border-t border-gray-100">
-                      <RateButton book={book} ratings={myRatings} onOpen={setRatingTarget} />
-                    </div>
-                  )}
+                  <div className="pt-1 border-t border-gray-100">
+                    {book.avg_rating != null ? (
+                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600">
+                        <span className="text-amber-400">★</span>
+                        {book.avg_rating.toFixed(1)}
+                        <span className="text-gray-400 font-normal">/ 5</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">No ratings yet</span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -625,7 +580,7 @@ export function Books() {
               <table className="min-w-full divide-y divide-gray-200 text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['', 'Title', 'Author', 'ISBN', 'Published', ...(session ? ['Your Rating'] : [])].map(h => (
+                    {['', 'Title', 'Author', 'ISBN', 'Published', 'Avg Rating', ...(session ? ['Shelf'] : [])].map(h => (
                       <th key={h} className="px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider">{h}</th>
                     ))}
                     <th className="px-4 py-3" />
@@ -639,7 +594,8 @@ export function Books() {
                       <td className="px-4 py-3"><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
                       <td className="px-4 py-3"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
                       <td className="px-4 py-3"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
-                      {session && <td className="px-4 py-3"><div className="h-6 w-14 bg-gray-200 rounded-full animate-pulse" /></td>}
+                      <td className="px-4 py-3"><div className="h-4 w-10 bg-gray-200 rounded animate-pulse" /></td>
+                      {session && <td className="px-4 py-3"><div className="h-6 w-24 bg-gray-200 rounded-full animate-pulse" /></td>}
                       <td className="px-4 py-3" />
                     </tr>
                   ))}
@@ -668,6 +624,12 @@ export function Books() {
                   { header: 'Author', accessor: (b) => b.author.name },
                   { header: 'ISBN', accessor: (b) => b.isbn },
                   { header: 'Published', accessor: (b) => b.publication_date },
+                  {
+                    header: 'Avg Rating',
+                    accessor: (b: Book) => b.avg_rating != null
+                      ? <span className="flex items-center gap-1 text-sm font-semibold text-amber-600"><span className="text-amber-400">★</span>{b.avg_rating.toFixed(1)}</span>
+                      : <span className="text-sm text-gray-300">—</span>,
+                  },
                   ...(session ? [{
                     header: 'Shelf',
                     accessor: (b: Book) => (
@@ -686,9 +648,6 @@ export function Books() {
                         }}
                       />
                     ),
-                  }, {
-                    header: 'Your Rating',
-                    accessor: (b: Book) => <RateButton book={b} ratings={myRatings} onOpen={setRatingTarget} />,
                   }] : []),
                 ]}
               />

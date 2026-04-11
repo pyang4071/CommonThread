@@ -9,9 +9,7 @@ from app.models.book_trope import BookTrope
 from app.models.book_type import BookType
 from app.models.character_dna import CharacterDNA
 from app.models.dislike import BookDislike
-from app.models.embedding_job import EmbeddingJob
 from app.models.genre import Genre
-from app.models.recommendation_event import RecommendationEvent
 from app.models.series import Series
 from app.models.tone import Tone
 from app.models.trope import Trope
@@ -22,6 +20,5 @@ from app.models.user_book_trope import UserBookTrope
 __all__ = [
     "Author", "Book", "Trope", "BookTrope", "Archetype", "CharacterDNA",
     "AppUser", "BookRating", "BookDislike", "Genre", "BookType", "Tone",
-    "Series", "EmbeddingJob", "RecommendationEvent",
-    "UserBookTrope", "UserBookArchetype",
+    "Series", "UserBookTrope", "UserBookArchetype",
 ]

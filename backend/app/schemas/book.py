@@ -56,6 +56,7 @@ class BookRead(BookBase):
     author: AuthorRead
     series: SeriesRead | None = None
     cover_url: str | None = None
+    avg_rating: float | None = None
     created_at: datetime
     updated_at: datetime
     embedding_status: str = "pending"
