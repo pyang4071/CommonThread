@@ -36,6 +36,7 @@ interface Props {
 export function ReadingStatusButton({ bookId, token, initial = null, onChange }: Props) {
   const [status, setStatus] = useState<StatusValue | null>(initial)
   const [open, setOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => { if (initial != null) setStatus(initial) }, [initial])
@@ -67,12 +68,21 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
 
   const cfg = status ? STATUS_CONFIG[status] : null
 
+  const toggleOpen = () => {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect()
+      const dropdownHeight = 160 // approximate max height of the dropdown
+      setOpenUpward(rect.bottom + dropdownHeight > window.innerHeight)
+    }
+    setOpen(o => !o)
+  }
+
   return (
     <div ref={ref} className="relative inline-block">
       {/* Trigger button */}
       {cfg ? (
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={toggleOpen}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${cfg.chip} ${cfg.hover}`}
         >
           <span>{cfg.icon}</span>
@@ -81,7 +91,7 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
         </button>
       ) : (
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={toggleOpen}
           className="px-3 py-1.5 rounded-full text-sm font-medium text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-700 transition-colors"
         >
           + Add to shelf
@@ -90,7 +100,7 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute left-0 mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[170px]">
+        <div className={`absolute left-0 z-30 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[170px] ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
           {ALL_STATUSES.map(([val, c]) => (
             <button
               key={val}

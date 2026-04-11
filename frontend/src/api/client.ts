@@ -99,6 +99,7 @@ export type Book = {
   description: string | null
   pacing: number | null
   cover_url: string | null
+  avg_rating: number | null
   created_at: string
   updated_at: string
   embedding_status: 'pending' | 'done' | 'failed'

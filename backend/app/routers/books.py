@@ -2,12 +2,14 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.auth import get_optional_user
 from app.database import get_db
 from app.database.engine import AsyncSessionLocal
+from app.models.book_rating import BookRating
 from app.schemas.author import AuthorRead
 from app.schemas.book import (
     BookCreate,
@@ -82,7 +84,7 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser | None = Depends(get_optional_user),
 ):
-    return await crud.book.list_books(
+    books = await crud.book.list_books(
         db, skip=skip, limit=limit, search=search,
         categories=categories or None,
         genre_ids=genre_ids or None,
@@ -94,13 +96,32 @@ async def list_books(
         shelf_status=shelf_status,
         user_id=current_user.user_id if current_user else None,
     )
+    book_ids = [b.book_id for b in books]
+    avg_map: dict[int, float] = {}
+    if book_ids:
+        avg_q = await db.execute(
+            select(BookRating.book_id, func.avg(BookRating.rating).label("avg_rating"))
+            .where(BookRating.book_id.in_(book_ids))
+            .group_by(BookRating.book_id)
+        )
+        avg_map = {r.book_id: round(float(r.avg_rating), 2) for r in avg_q}
+    out = []
+    for book in books:
+        book_read = BookRead.model_validate(book)
+        book_read.avg_rating = avg_map.get(book.book_id)
+        out.append(book_read)
+    return out
 
 
 @router.post("/", response_model=BookRead, status_code=201)
 async def create_book(data: BookCreate, db: AsyncSession = Depends(get_db)):
     book = await crud.book.create_book(db, data)
     asyncio.create_task(_embed_in_background(book.book_id))
-    asyncio.create_task(_fetch_cover_in_background(book.book_id, book.isbn, book.title, book.author.name))
+    cover_url = await fetch_cover_url(book.isbn, book.title, book.author.name)
+    if cover_url:
+        book.cover_url = cover_url
+        await db.commit()
+        await db.refresh(book)
     return book
 
 
