@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      # Persist FastEmbed model cache across container restarts (~570 MB).
+      # On first startup models download automatically; subsequent starts are instant.
+      - fastembed_cache:/root/.cache/fastembed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s   # allow time for model download on first run
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # These are baked into the JS bundle — set them in your shell or a
+        # root-level .env file before running docker-compose up --build.
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  fastembed_cache:

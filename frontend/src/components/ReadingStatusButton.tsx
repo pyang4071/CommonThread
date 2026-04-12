@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
+import { useToast } from '../contexts/ToastContext'
 
 export type StatusValue = 'want_to_read' | 'currently_reading' | 'read'
 
@@ -37,7 +38,9 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
   const [status, setStatus] = useState<StatusValue | null>(initial)
   const [open, setOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
+  const [loading, setLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const toast = useToast()
 
   useEffect(() => { if (initial != null) setStatus(initial) }, [initial])
 
@@ -54,6 +57,7 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
     const prev = status
     setStatus(next)
     onChange?.(next)
+    setLoading(true)
     try {
       if (next === null) {
         await api.shelf.remove(bookId, token)
@@ -63,6 +67,9 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
     } catch {
       setStatus(prev)
       onChange?.(prev)
+      toast.error('Failed to update shelf status.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -83,18 +90,26 @@ export function ReadingStatusButton({ bookId, token, initial = null, onChange }:
       {cfg ? (
         <button
           onClick={toggleOpen}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${cfg.chip} ${cfg.hover}`}
+          disabled={loading}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${cfg.chip} ${cfg.hover}`}
         >
-          <span>{cfg.icon}</span>
+          {loading
+            ? <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+            : <span>{cfg.icon}</span>
+          }
           <span>{cfg.label}</span>
-          <span className="text-xs opacity-50">▾</span>
+          {!loading && <span className="text-xs opacity-50">▾</span>}
         </button>
       ) : (
         <button
           onClick={toggleOpen}
-          className="px-3 py-1.5 rounded-full text-sm font-medium text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-700 transition-colors"
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium text-gray-500 border border-dashed border-gray-300 hover:border-gray-400 hover:text-gray-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          + Add to shelf
+          {loading
+            ? <span className="w-3 h-3 rounded-full border-2 border-gray-400 border-t-transparent animate-spin" />
+            : '+ Add to shelf'
+          }
         </button>
       )}
 

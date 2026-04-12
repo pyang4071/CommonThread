@@ -109,9 +109,40 @@ print(book.book_tropes)  # safe
 
 **Fix (dev)**: Accept the one-time download. Models are cached after first use.
 
-**Fix (prod)**: Pre-warm the models during application startup in the `lifespan` handler in `app/main.py`, or bake the model cache into the Docker image.
+**Fix (prod)**: `app/main.py` lifespan handler now pre-warms both models via `run_in_executor` before `yield`. The Docker volume `fastembed_cache` persists the cache across container restarts. The `/health` endpoint reports `"genome": "ready"` / `"description": "ready"` once models are loaded.
 
-**Prevention**: Document expected first-run behavior. Add a `/health` endpoint that can check embedding model availability.
+**Prevention**: Document expected first-run behavior. The `/health` healthcheck in `docker-compose.yml` uses a 120 s `start_period` to allow for first-run model download.
+
+---
+
+### [TEMPLATE] React context must wrap all consumers — ToastProvider placement
+
+**Context**: Adding `ToastProvider` to `App.tsx` when `ReadingStatusButton` (used inside many pages) calls `useToast()`.
+
+**Error**:
+```
+Error: useToast must be used within ToastProvider
+```
+
+**Root Cause**: `ToastProvider` was initially placed inside `AuthProvider`, but `AuthProvider` renders the `<Header>` which contains nav links — and some components that call `useToast()` may render before the inner provider is mounted if the tree is ordered incorrectly.
+
+**Fix**: Place `ToastProvider` as the outermost wrapper in `App.tsx`, outside `AuthProvider`, so every component in the tree can call `useToast()` regardless of auth state.
+
+**Prevention**: Toast/notification context should always be at the root of the provider tree. Rule of thumb: providers that have no dependencies go outermost; providers that depend on auth state go inside `AuthProvider`.
+
+---
+
+### [TEMPLATE] Cover fetch — no retry on transient network errors
+
+**Context**: Background cover fetching after book create/update, or admin `/fetch-covers`.
+
+**Error**: Silent failure — `fetch_cover_url` catches `httpx.HTTPError` on the first attempt and returns `None`, leaving `cover_url` as `NULL` even when OpenLibrary would have succeeded on a retry.
+
+**Root Cause**: Original implementation had no retry loop; a single timeout or transient 5xx silently returned `None`.
+
+**Fix**: `covers.py` now lets `httpx.HTTPError` propagate from `_probe_isbn` / `_search_cover` and retries up to 3 times with exponential back-off (1 s, 2 s) at the `fetch_cover_url` level. "No cover found" (404 / empty search results) is still a silent `None` — only actual network/HTTP errors are retried.
+
+**Prevention**: When wrapping external HTTP calls that touch a CDN or third-party API, always retry on `httpx.TransportError` / 5xx at the service layer, not the caller.
 
 ---
 
