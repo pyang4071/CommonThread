@@ -28,11 +28,10 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Admin dashboard | Working — embed-all, fetch-covers, status |
 | Auth | Working via Supabase JWT |
 | Testing | Minimal — pytest scaffolded, not comprehensive |
-| Deployment | Dev-only; no production config |
+| Deployment | Docker Compose config added (`docker-compose.yml`) |
 
 ### In-progress / Pending
 - `embedding_jobs` and `recommendation_events` tables were dropped in the latest migration (j4k5l6m7n8o9) — they were replaced by the `embedding_status` column directly on the `books` table
-- Cover fetching is async but still fire-and-forget; no retry logic
 - No persistent task queue (Celery/RQ) — background tasks run in the FastAPI event loop
 
 ---
@@ -382,6 +381,45 @@ Each book tracks `embedding_status`:
 - `failed` — embedding threw an error
 
 The Admin `/embed-all` endpoint requeues all `pending` and `failed` books.
+
+---
+
+## Docker Deployment
+
+The project ships with a `docker-compose.yml` at the repo root that builds and runs both the backend and frontend.
+
+### Prerequisites
+- Docker with Compose v2 (`docker compose version`)
+- A filled-in `backend/.env` (copy from `backend/.env.example`)
+- Supabase credentials exported as shell variables (or in a root-level `.env` file)
+
+### One-time setup
+
+```bash
+# 1 — backend secrets
+cp backend/.env.example backend/.env
+# edit backend/.env with your Supabase + DB credentials
+
+# 2 — frontend build-time vars (baked into the JS bundle)
+export VITE_SUPABASE_URL=https://<ref>.supabase.co
+export VITE_SUPABASE_ANON_KEY=<anon-key>
+# or add them to a root .env file (gitignored)
+```
+
+### Run
+
+```bash
+docker compose up --build
+# Frontend: http://localhost
+# Backend API: http://localhost:8000
+# API docs: http://localhost:8000/docs
+```
+
+### Notes
+- **FastEmbed models** (~570 MB) are downloaded on first startup and cached in a named Docker volume (`fastembed_cache`). Subsequent starts are instant.
+- The `backend` service has a healthcheck that waits up to 120 s for the models to finish loading before the `frontend` container starts routing to it.
+- The frontend nginx proxies `/api/*` → `http://backend:8000`, so the browser only ever talks to port 80.
+- Set `ENVIRONMENT=production` and `CORS_ORIGINS=["https://yourdomain.com"]` in `backend/.env` for a hardened CORS policy.
 
 ---
 

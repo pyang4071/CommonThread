@@ -333,6 +333,7 @@ export function Books() {
         </button>
         <button
           onClick={() => setVibeOpen(o => !o)}
+          title="Describe a feeling or theme in plain language — e.g. 'cozy mystery with a slow-burn romance'. The slider controls how much weight goes to plot structure vs. prose vibe."
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
             vibeOpen || semanticResults
               ? 'bg-indigo-600 text-white border-indigo-600'
@@ -348,6 +349,30 @@ export function Books() {
           </button>
         )}
       </div>
+
+      {/* ── Filter / result summary ── */}
+      {(activeFilterCount > 0 || search || semanticResults) && (
+        <div className="flex items-center gap-2 text-sm text-gray-500 -mt-1">
+          {semanticResults ? (
+            <span>
+              {semanticResults.length} vibe result{semanticResults.length !== 1 ? 's' : ''}
+              {' '}for &ldquo;{promptInput}&rdquo;
+            </span>
+          ) : loading ? (
+            <span>Loading…</span>
+          ) : (
+            <span>
+              {Math.min(books.length, PAGE_SIZE)}{books.length > PAGE_SIZE ? '+' : ''} book{books.length !== 1 ? 's' : ''}
+              {activeFilterCount > 0 && (
+                <> · <span className="font-medium text-indigo-600">{activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active</span></>
+              )}
+              {search && !activeFilterCount && (
+                <> · keyword &ldquo;{search}&rdquo;</>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ── Filter panel ── */}
       {filtersOpen && (
@@ -482,17 +507,41 @@ export function Books() {
           <div>
             <p className="text-sm font-semibold text-indigo-800">Vibe Search</p>
             <p className="text-xs text-indigo-500 mt-0.5">
-              Describe a feeling, theme, or story — we'll find the closest matches.
-              {activeFilterCount > 0 && ` ${activeFilterCount} filter${activeFilterCount !== 1 ? 's' : ''} active.`}
+              Describe a feeling, theme, or story in plain language — the engine matches by meaning, not just keywords.
+              {activeFilterCount > 0 && <> Filters are still active and will narrow results.</>}
             </p>
           </div>
+
+          {/* Example prompts */}
+          <div>
+            <p className="text-xs text-indigo-400 mb-1.5">Try an example:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                'cozy mystery with a found family',
+                'slow-burn romance in a fantasy setting',
+                'dark academia with an unreliable narrator',
+                'heartwarming coming-of-age in a small town',
+              ].map(example => (
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => setPromptInput(example)}
+                  className="px-2.5 py-1 text-xs rounded-full bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Alpha slider */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-indigo-500">
-              <span>Vibe &amp; prose</span>
+              <span>More vibe &amp; prose</span>
               <span className="text-indigo-700 font-medium">
                 {alpha >= 0.8 ? 'Structure-heavy' : alpha <= 0.2 ? 'Vibe-heavy' : `${Math.round(alpha * 100)}% structure`}
               </span>
-              <span>Tropes &amp; archetypes</span>
+              <span>More tropes &amp; archetypes</span>
             </div>
             <input
               type="range" min={0} max={1} step={0.05} value={alpha}
@@ -500,13 +549,15 @@ export function Books() {
               className="w-full accent-indigo-600"
             />
           </div>
+
+          {/* Query input + submit */}
           <div className="flex gap-2">
             <input
               type="text"
               value={promptInput}
               onChange={e => setPromptInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && runSemanticSearch()}
-              placeholder="e.g. a cozy mystery with a found family in a small town…"
+              placeholder="Describe what you're in the mood for…"
               className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
             <button

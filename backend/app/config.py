@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # App
     SECRET_KEY: str = "change-me-in-development"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
+    # Allowed CORS origins in staging/production.
+    # Format: JSON list, e.g. CORS_ORIGINS=["https://myapp.com"]
+    CORS_ORIGINS: list[str] = []
 
     @computed_field
     @property

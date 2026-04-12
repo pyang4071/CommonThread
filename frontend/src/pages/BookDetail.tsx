@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Book, BookDetail as BookDetailType, Review, SimilarBook, Trope, UserTags } from '../api/client'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { RatingModal } from '../components/RatingModal'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 function WeightBar({ value }: { value: number }) {
   const pct = Math.round(value * 100)
@@ -50,6 +52,7 @@ export function BookDetail() {
   const backTo: string = state?.from ?? '/books'
   const backLabel = backTo === '/shelf' ? '← Back to Shelf' : '← Back to Books'
   const { session } = useAuth()
+  const toast = useToast()
   const [book, setBook] = useState<BookDetailType | null>(null)
   const [similar, setSimilar] = useState<SimilarBook[]>([])
   const [loading, setLoading] = useState(true)
@@ -60,6 +63,7 @@ export function BookDetail() {
   const [readingStatus, setReadingStatus] = useState<StatusValue | null>(null)
   const [disliked, setDisliked] = useState(false)
   const [dislikeLoading, setDislikeLoading] = useState(false)
+  const [dislikeConfirmOpen, setDislikeConfirmOpen] = useState(false)
   const [reviews, setReviews] = useState<Review[]>([])
   const [seriesBooks, setSeriesBooks] = useState<Book[]>([])
   const [myTags, setMyTags] = useState<UserTags>({ tropes: [], archetypes: [] })
@@ -116,6 +120,9 @@ export function BookDetail() {
         tropes: [...prev.tropes.filter(t => t.trope.trope_id !== addTropeId), entry],
       }))
       setAddTropeId('')
+      toast.success('Trope tag added.')
+    } catch {
+      toast.error('Failed to add trope tag.')
     } finally {
       setTagSaving(false)
     }
@@ -123,8 +130,12 @@ export function BookDetail() {
 
   const handleRemoveTrope = async (tropeId: number) => {
     if (!session || !id) return
-    await api.myTags.removeTrope(Number(id), tropeId, session.access_token)
-    setMyTags(prev => ({ ...prev, tropes: prev.tropes.filter(t => t.trope.trope_id !== tropeId) }))
+    try {
+      await api.myTags.removeTrope(Number(id), tropeId, session.access_token)
+      setMyTags(prev => ({ ...prev, tropes: prev.tropes.filter(t => t.trope.trope_id !== tropeId) }))
+    } catch {
+      toast.error('Failed to remove trope tag.')
+    }
   }
 
   const handleAddArchetype = async () => {
@@ -137,6 +148,9 @@ export function BookDetail() {
         archetypes: [...prev.archetypes.filter(a => a.archetype.archetype_id !== addArchetypeId), entry],
       }))
       setAddArchetypeId('')
+      toast.success('Archetype tag added.')
+    } catch {
+      toast.error('Failed to add archetype tag.')
     } finally {
       setTagSaving(false)
     }
@@ -144,8 +158,12 @@ export function BookDetail() {
 
   const handleRemoveArchetype = async (archetypeId: number) => {
     if (!session || !id) return
-    await api.myTags.removeArchetype(Number(id), archetypeId, session.access_token)
-    setMyTags(prev => ({ ...prev, archetypes: prev.archetypes.filter(a => a.archetype.archetype_id !== archetypeId) }))
+    try {
+      await api.myTags.removeArchetype(Number(id), archetypeId, session.access_token)
+      setMyTags(prev => ({ ...prev, archetypes: prev.archetypes.filter(a => a.archetype.archetype_id !== archetypeId) }))
+    } catch {
+      toast.error('Failed to remove archetype tag.')
+    }
   }
 
   const toggleDislike = async () => {
@@ -159,6 +177,8 @@ export function BookDetail() {
         await api.dislikes.set(Number(id), session.access_token)
         setDisliked(true)
       }
+    } catch {
+      toast.error('Failed to update dislike.')
     } finally {
       setDislikeLoading(false)
     }
@@ -299,17 +319,30 @@ export function BookDetail() {
               {myRating != null ? <>★ {myRating}/5 · Edit rating</> : '+ Rate this book'}
             </button>
             <button
-              onClick={toggleDislike}
+              onClick={() => disliked ? toggleDislike() : setDislikeConfirmOpen(true)}
               disabled={dislikeLoading}
-              title={disliked ? 'Remove "not for me" signal' : 'Not for me — avoid similar books'}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors disabled:opacity-50 ${
+              title={disliked ? 'Remove "not for me" signal' : 'Not for me — exclude from recommendations'}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors disabled:opacity-50 ${
                 disliked
                   ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'
                   : 'text-gray-400 border-gray-200 hover:bg-gray-50 hover:text-gray-600'
               }`}
             >
-              {disliked ? '👎 Not for me' : '👎'}
+              {dislikeLoading
+                ? <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                : '👎'
+              }
+              {disliked && ' Not for me'}
             </button>
+            {dislikeConfirmOpen && (
+              <ConfirmModal
+                title="Mark as not for me?"
+                message="This book will be excluded from your recommendations. You can undo this at any time by clicking the button again."
+                confirmLabel="Mark as not for me"
+                onConfirm={() => { setDislikeConfirmOpen(false); toggleDislike() }}
+                onCancel={() => setDislikeConfirmOpen(false)}
+              />
+            )}
             {ratingOpen && (
               <RatingModal
                 book={book}

@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { AddBook } from './pages/AddBook'
 import { EditBook } from './pages/EditBook'
@@ -81,6 +82,7 @@ function Layout({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <ToastProvider>
       <AuthProvider>
         <Routes>
           {/* Auth pages — full screen, no app header */}
@@ -108,6 +110,7 @@ function App() {
           <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>
       </AuthProvider>
+      </ToastProvider>
     </BrowserRouter>
   )
 }
