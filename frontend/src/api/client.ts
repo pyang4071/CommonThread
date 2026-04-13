@@ -44,6 +44,34 @@ async function authedFetch(method: string, path: string, token: string, body?: u
   })
 }
 
+export type UserPreferences = {
+  blocked_genre_ids: number[]
+  blocked_book_type_ids: number[]
+  blocked_tone_ids: number[]
+  profile_public: boolean
+}
+
+export type UserPublicProfile = {
+  user_id: string
+  name: string | null
+  email: string
+}
+
+export type FollowStatus = {
+  following: boolean
+}
+
+export type FeedEntry = {
+  user: UserPublicProfile
+  book_id: number
+  book_title: string
+  book_cover_url: string | null
+  event_type: 'read' | 'rating' | 'review' | 'want_to_read' | 'currently_reading'
+  rating: number | null
+  review_text: string | null
+  occurred_at: string
+}
+
 export type AppUser = {
   user_id: string
   name: string | null
@@ -51,6 +79,7 @@ export type AppUser = {
   created_at: string
   is_admin: boolean
   onboarding_completed: boolean
+  preferences: UserPreferences
 }
 
 export type Series = {
@@ -206,6 +235,9 @@ export const api = {
       toneIds?: number[]
       excludeTropeIds?: number[]
       excludeArchetypeIds?: number[]
+      excludeGenreIds?: number[]
+      excludeBookTypeIds?: number[]
+      excludeToneIds?: number[]
       skip?: number
       limit?: number
       shelfStatus?: string
@@ -220,6 +252,9 @@ export const api = {
       for (const id of params?.toneIds ?? []) qs.append('tone_ids', String(id))
       for (const id of params?.excludeTropeIds ?? []) qs.append('exclude_trope_ids', String(id))
       for (const id of params?.excludeArchetypeIds ?? []) qs.append('exclude_archetype_ids', String(id))
+      for (const id of params?.excludeGenreIds ?? []) qs.append('exclude_genre_ids', String(id))
+      for (const id of params?.excludeBookTypeIds ?? []) qs.append('exclude_book_type_ids', String(id))
+      for (const id of params?.excludeToneIds ?? []) qs.append('exclude_tone_ids', String(id))
       if (params?.skip != null) qs.set('skip', String(params.skip))
       if (params?.limit != null) qs.set('limit', String(params.limit))
       if (params?.shelfStatus) qs.set('shelf_status', params.shelfStatus)
@@ -332,8 +367,42 @@ export const api = {
   users: {
     me: (token: string) =>
       authedFetch('GET', '/users/me', token).then(r => r.json() as Promise<AppUser>),
+    updateMe: (token: string, data: { name?: string | null; preferences?: UserPreferences }) =>
+      authedFetch('PUT', '/users/me', token, data).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<AppUser>
+      }),
     myTags: (token: string) =>
       authedFetch('GET', '/users/me/tags', token).then(r => r.json() as Promise<BookTagsEntry[]>),
+    search: (token: string, q: string) =>
+      authedFetch('GET', `/users/search?q=${encodeURIComponent(q)}`, token)
+        .then(r => r.json() as Promise<UserPublicProfile[]>),
+    following: (token: string) =>
+      authedFetch('GET', '/users/me/following', token).then(r => r.json() as Promise<UserPublicProfile[]>),
+    followers: (token: string) =>
+      authedFetch('GET', '/users/me/followers', token).then(r => r.json() as Promise<UserPublicProfile[]>),
+    follow: (token: string, userId: string) =>
+      authedFetch('POST', `/users/me/following/${userId}`, token, {}).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<FollowStatus>
+      }),
+    unfollow: (token: string, userId: string) =>
+      authedFetch('DELETE', `/users/me/following/${userId}`, token).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<FollowStatus>
+      }),
+    followStatus: (token: string, userId: string) =>
+      authedFetch('GET', `/users/me/following/${userId}/status`, token)
+        .then(r => r.json() as Promise<FollowStatus>),
+    feed: (token: string, limit = 30) =>
+      authedFetch('GET', `/users/me/feed?limit=${limit}`, token).then(r => r.json() as Promise<FeedEntry[]>),
+    profile: (token: string, userId: string) =>
+      authedFetch('GET', `/users/${userId}/profile`, token).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<UserPublicProfile>
+      }),
+    shelf: (token: string, userId: string) =>
+      authedFetch('GET', `/users/${userId}/shelf`, token).then(r => r.json() as Promise<ShelfEntry[]>),
   },
   admin: {
     embedStatus: (token: string) =>

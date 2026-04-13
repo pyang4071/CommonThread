@@ -63,6 +63,9 @@ async def list_books(
     tone_ids: list[int] | None = None,
     exclude_trope_ids: list[int] | None = None,
     exclude_archetype_ids: list[int] | None = None,
+    exclude_genre_ids: list[int] | None = None,
+    exclude_book_type_ids: list[int] | None = None,
+    exclude_tone_ids: list[int] | None = None,
     shelf_status: str | None = None,
     user_id: uuid.UUID | None = None,
 ) -> list[Book]:
@@ -114,6 +117,24 @@ async def list_books(
         stmt = stmt.where(
             Book.book_id.not_in(
                 select(CharacterDNA.book_id).where(CharacterDNA.archetype_id.in_(exclude_archetype_ids))
+            )
+        )
+    if exclude_genre_ids:
+        stmt = stmt.where(
+            Book.book_id.not_in(
+                select(book_genres.c.book_id).where(book_genres.c.genre_id.in_(exclude_genre_ids))
+            )
+        )
+    if exclude_book_type_ids:
+        stmt = stmt.where(
+            Book.book_id.not_in(
+                select(book_book_types.c.book_id).where(book_book_types.c.book_type_id.in_(exclude_book_type_ids))
+            )
+        )
+    if exclude_tone_ids:
+        stmt = stmt.where(
+            Book.book_id.not_in(
+                select(book_tones.c.book_id).where(book_tones.c.tone_id.in_(exclude_tone_ids))
             )
         )
     if shelf_status and user_id:

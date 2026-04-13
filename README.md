@@ -20,10 +20,12 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Area | Status |
 |---|---|
 | Backend API | Feature-complete — all routes functional |
-| Database schema | Stable (19 migrations applied) |
+| Database schema | Stable (21 migrations applied) |
 | Embedding pipeline | Working — dual-stream BGE via FastEmbed |
 | Semantic search | Working — alpha-blended genome + description |
 | Personalized recommendations | Working — user taste vector from history |
+| Friends / social | Working — follow system, activity feed, public profiles |
+| User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
 | Frontend | Functional — all major pages implemented |
 | Admin dashboard | Working — embed-all, fetch-covers, status |
 | Auth | Working via Supabase JWT |
@@ -87,9 +89,10 @@ CommonThread/
 │   │   ├── database/
 │   │   │   ├── engine.py        # Async SQLAlchemy engine
 │   │   │   └── base.py          # ORM declarative base
-│   │   ├── models/              # SQLAlchemy ORM models (18 files)
+│   │   ├── models/              # SQLAlchemy ORM models (20 files)
 │   │   │   ├── __init__.py
 │   │   │   ├── user.py
+│   │   │   ├── user_follow.py   ← follow graph
 │   │   │   ├── book.py
 │   │   │   ├── author.py
 │   │   │   ├── trope.py
@@ -114,7 +117,7 @@ CommonThread/
 │   │   │   ├── reading_status.py
 │   │   │   ├── dislikes.py
 │   │   │   ├── user_tags.py
-│   │   │   ├── users.py
+│   │   │   ├── users.py         ← extended with social/follow endpoints
 │   │   │   ├── admin.py
 │   │   │   ├── tropes.py
 │   │   │   ├── archetypes.py
@@ -122,14 +125,15 @@ CommonThread/
 │   │   │   ├── book_types.py
 │   │   │   ├── tones.py
 │   │   │   └── series.py
-│   │   ├── crud/                # Data access layer (13 modules)
+│   │   ├── crud/                # Data access layer (14 modules)
+│   │   │   └── follow.py        ← follow/unfollow/feed/search CRUD
 │   │   └── services/
 │   │       ├── embedding.py     # Dual-stream BGE pipeline
 │   │       ├── similarity.py    # Sparse feature vector scoring
 │   │       └── covers.py        # Book cover URL fetching
 │   ├── migrations/
 │   │   ├── env.py
-│   │   └── versions/            # 19 Alembic migration files
+│   │   └── versions/            # 21 Alembic migration files
 │   ├── scripts/
 │   │   ├── seed.py
 │   │   ├── seed.sql
@@ -144,29 +148,33 @@ CommonThread/
     │   ├── api/
     │   │   └── client.ts        # Typed API wrapper (all endpoints)
     │   ├── contexts/
-    │   │   └── AuthContext.tsx  # Supabase session + AppUser state
+    │   │   ├── AuthContext.tsx  # Supabase session + AppUser state
+    │   │   └── ToastContext.tsx # Global toast/snackbar system
     │   ├── hooks/
     │   │   └── useSessionState.ts  # sessionStorage persistence hook
     │   ├── lib/
     │   │   └── supabase.ts      # Supabase client init
     │   ├── components/
-    │   │   ├── ProtectedRoute.tsx
+    │   │   ├── ProtectedRoute.tsx  # adminOnly prop for gating
     │   │   ├── RatingModal.tsx
     │   │   ├── ReadingStatusButton.tsx
     │   │   ├── Table.tsx
     │   │   └── ConfirmModal.tsx
     │   └── pages/
-    │       ├── Home.tsx
-    │       ├── Books.tsx
+    │       ├── Home.tsx            # Recs + currently reading + friend feed strip
+    │       ├── Books.tsx           # Browse with filters, vibe search, content blacklist
     │       ├── BookDetail.tsx
     │       ├── Shelf.tsx
     │       ├── MyTags.tsx
+    │       ├── Profile.tsx         # Name, privacy toggle, content blacklist
+    │       ├── Friends.tsx         # User search, following list, activity feed
+    │       ├── UserProfile.tsx     # Public profile view + friend's shelf
     │       ├── Tropes.tsx
     │       ├── TropeDetail.tsx
     │       ├── ArchetypeDetail.tsx
-    │       ├── Genres.tsx
-    │       ├── BookTypes.tsx
-    │       ├── Tones.tsx
+    │       ├── Genres.tsx          # Admin-only
+    │       ├── BookTypes.tsx       # Admin-only
+    │       ├── Tones.tsx           # Admin-only
     │       ├── Admin.tsx
     │       ├── AddBook.tsx
     │       ├── EditBook.tsx
@@ -211,6 +219,8 @@ book_types        book_type_id, name, description
 tones             tone_id, name
 series            series_id, name, description
 app_users         user_id (UUID), name, email, is_admin, onboarding_completed
+                  preferences (JSONB) — { blocked_genre_ids, blocked_book_type_ids,
+                                          blocked_tone_ids, profile_public }
 ```
 
 ### Association Tables
@@ -226,12 +236,14 @@ reading_status (user_id, book_id, status)
 book_dislikes (user_id, book_id)
 user_book_tropes (user_id, book_id, trope_id, weight)    ← personal tags
 user_book_archetypes (user_id, book_id, archetype_id, importance) ← personal tags
+user_follows (follower_id UUID, followee_id UUID, created_at) ← follow graph (composite PK)
 ```
 
 ### Entity Relationships
 
 ```
 AppUsers ─── BookRating, ReadingStatus, BookDislike, UserBookTrope, UserBookArchetype
+AppUsers ─── UserFollow (follower_id / followee_id, self-referential many-to-many)
 Authors ──── Books (one-to-many)
 Books ─────── Genres, BookTypes, Tones (many-to-many via plain junction tables)
 Books ─────── Tropes (many-to-many via book_tropes with weight)
@@ -325,9 +337,18 @@ All endpoints returning user-specific data require `Authorization: Bearer <supab
 ### Users — `/users`
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/users/me` | Required | Current user profile |
-| PUT | `/users/me` | Required | Update profile `{name?}` |
+| GET | `/users/me` | Required | Current user profile (includes preferences) |
+| PUT | `/users/me` | Required | Update profile `{name?, preferences?}` |
 | GET | `/users/me/tags` | Required | All personal tags grouped by book |
+| GET | `/users/search?q=` | Required | Search public users by name or email |
+| GET | `/users/me/following` | Required | Users the caller follows |
+| GET | `/users/me/followers` | Required | Users who follow the caller |
+| POST | `/users/me/following/{user_id}` | Required | Follow a user |
+| DELETE | `/users/me/following/{user_id}` | Required | Unfollow a user |
+| GET | `/users/me/following/{user_id}/status` | Required | Check follow status |
+| GET | `/users/me/feed?limit=30` | Required | Activity feed (shelf + ratings from followed users) |
+| GET | `/users/{user_id}/profile` | Required | Public profile (403 if private and not following) |
+| GET | `/users/{user_id}/shelf` | Required | User's shelf as `ShelfEntry[]` (403 if private) |
 
 ### Admin — `/admin`
 | Method | Path | Auth | Description |
@@ -435,25 +456,20 @@ docker compose up --build
 ```bash
 cd backend
 
-# Create and activate venv
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -e ".[dev]"
-
-# Configure environment
+# Configure environment (first time only)
 cp .env.example .env
 # Edit .env with your Supabase credentials and DATABASE_URL
 
 # Run migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Start dev server
-fastapi dev app/main.py
+uv run fastapi dev app/main.py
 # Runs at http://localhost:8000
 # Auto-docs at http://localhost:8000/docs
 ```
+
+> `uv` manages the virtualenv automatically — no manual activation needed.
 
 ### Frontend
 
@@ -474,23 +490,23 @@ npm run dev
 
 ```bash
 # Run linter/formatter
-ruff check .
-ruff format .
+uv run ruff check .
+uv run ruff format .
 
 # Create a new migration
-alembic revision --autogenerate -m "description of change"
+uv run alembic revision --autogenerate -m "description of change"
 
 # Apply migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Roll back one migration
-alembic downgrade -1
+uv run alembic downgrade -1
 
 # Embed all books (script)
-python scripts/embed_all_books.py
+uv run python scripts/embed_all_books.py
 
 # Seed database
-python scripts/seed.py
+uv run python scripts/seed.py
 ```
 
 ### Useful Frontend Commands
@@ -572,3 +588,5 @@ Embedding and cover-fetching run as FastAPI `BackgroundTask` objects — they ex
 | +cascades | Added ON DELETE CASCADE |
 | +embed_status | Renamed/consolidated embedding status field |
 | j4k5l6m7n8o9 | **Drop embedding_jobs and recommendation_events** (replaced by inline status) |
+| k5l6m7n8o9p0 | **Add preferences JSONB to app_users** (blocked content lists, profile_public) |
+| l6m7n8o9p0q1 | **Add user_follows table** (follower_id, followee_id, created_at; composite PK + indexes) |

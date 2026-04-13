@@ -16,9 +16,10 @@ from app.models.trope import Trope
 from app.models.user import AppUser
 from app.models.user_book_archetype import UserBookArchetype
 from app.models.user_book_trope import UserBookTrope
+from app.models.user_follow import UserFollow
 
 __all__ = [
     "Author", "Book", "Trope", "BookTrope", "Archetype", "CharacterDNA",
     "AppUser", "BookRating", "BookDislike", "Genre", "BookType", "Tone",
-    "Series", "UserBookTrope", "UserBookArchetype",
+    "Series", "UserBookTrope", "UserBookArchetype", "UserFollow",
 ]

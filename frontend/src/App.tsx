@@ -14,7 +14,10 @@ import { Tones } from './pages/Tones'
 import { Tropes } from './pages/Tropes'
 import { Admin } from './pages/Admin'
 import { ArchetypeDetail } from './pages/ArchetypeDetail'
+import { Friends } from './pages/Friends'
+import { UserProfile } from './pages/UserProfile'
 import { MyTags } from './pages/MyTags'
+import { Profile } from './pages/Profile'
 import { Shelf } from './pages/Shelf'
 import { TropeDetail } from './pages/TropeDetail'
 import { NotFound } from './pages/NotFound'
@@ -39,16 +42,19 @@ function Header() {
         <NavLink to="/books" className={navClass}>Books</NavLink>
         {user && <NavLink to="/shelf" className={navClass}>My Shelf</NavLink>}
         {user && <NavLink to="/my-tags" className={navClass}>My Tags</NavLink>}
+        {user && <NavLink to="/friends" className={navClass}>Friends</NavLink>}
         <NavLink to="/tropes" className={navClass}>Tropes</NavLink>
         <NavLink to="/archetypes" className={navClass}>Archetypes</NavLink>
-        <NavLink to="/genres" className={navClass}>Genres</NavLink>
-        <NavLink to="/book-types" className={navClass}>Book Types</NavLink>
-        <NavLink to="/tones" className={navClass}>Tones</NavLink>
+        {isAdmin && <NavLink to="/genres" className={navClass}>Genres</NavLink>}
+        {isAdmin && <NavLink to="/book-types" className={navClass}>Book Types</NavLink>}
+        {isAdmin && <NavLink to="/tones" className={navClass}>Tones</NavLink>}
         {isAdmin && <NavLink to="/admin" className={navClass}>Admin</NavLink>}
       </nav>
       {user ? (
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{user.user_metadata?.name ?? user.email}</span>
+          <Link to="/profile" className="text-sm text-gray-500 hover:text-indigo-600 transition-colors">
+            {user.user_metadata?.name ?? user.email}
+          </Link>
           <button
             onClick={signOut}
             className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
@@ -101,12 +107,15 @@ function App() {
           <Route path="/tropes/:id" element={<Layout><TropeDetail /></Layout>} />
           <Route path="/archetypes" element={<Layout><ProtectedRoute><Archetypes /></ProtectedRoute></Layout>} />
           <Route path="/archetypes/:id" element={<Layout><ArchetypeDetail /></Layout>} />
-          <Route path="/genres" element={<Layout><ProtectedRoute><Genres /></ProtectedRoute></Layout>} />
-          <Route path="/book-types" element={<Layout><ProtectedRoute><BookTypes /></ProtectedRoute></Layout>} />
-          <Route path="/tones" element={<Layout><ProtectedRoute><Tones /></ProtectedRoute></Layout>} />
+          <Route path="/genres" element={<Layout><ProtectedRoute adminOnly><Genres /></ProtectedRoute></Layout>} />
+          <Route path="/book-types" element={<Layout><ProtectedRoute adminOnly><BookTypes /></ProtectedRoute></Layout>} />
+          <Route path="/tones" element={<Layout><ProtectedRoute adminOnly><Tones /></ProtectedRoute></Layout>} />
           <Route path="/admin" element={<Layout><ProtectedRoute><Admin /></ProtectedRoute></Layout>} />
+          <Route path="/profile" element={<Layout><ProtectedRoute><Profile /></ProtectedRoute></Layout>} />
           <Route path="/shelf" element={<Layout><ProtectedRoute><Shelf /></ProtectedRoute></Layout>} />
           <Route path="/my-tags" element={<Layout><ProtectedRoute><MyTags /></ProtectedRoute></Layout>} />
+          <Route path="/friends" element={<Layout><ProtectedRoute><Friends /></ProtectedRoute></Layout>} />
+          <Route path="/users/:userId" element={<Layout><ProtectedRoute><UserProfile /></ProtectedRoute></Layout>} />
           <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>
       </AuthProvider>

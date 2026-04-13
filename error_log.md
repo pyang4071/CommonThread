@@ -115,6 +115,26 @@ print(book.book_tropes)  # safe
 
 ---
 
+### [TEMPLATE] Alembic configparser rejects % in DATABASE_URL
+
+**Context**: Running `uv run alembic upgrade head` after setting a database password containing special characters (e.g. `@` percent-encoded as `%40`).
+
+**Error**:
+```
+ValueError: invalid interpolation syntax in '...DayDream4071%40...' at position 63
+```
+
+**Root Cause**: Alembic's `env.py` calls `config.set_main_option("sqlalchemy.url", ...)` which feeds the URL into Python's `configparser`. ConfigParser uses `%` as an interpolation prefix, so `%40` is treated as a malformed interpolation expression rather than a literal string.
+
+**Fix**: Escape `%` as `%%` before passing to `set_main_option`. The actual engine (`create_async_engine`) reads from `settings.DATABASE_URL` directly and is unaffected:
+```python
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
+```
+
+**Prevention**: Any time a DATABASE_URL contains percent-encoded characters (common with special-character passwords), apply this escape. The `%%` is only needed for configparser — SQLAlchemy's engine accepts the original `%40` form correctly.
+
+---
+
 ### [TEMPLATE] React context must wrap all consumers — ToastProvider placement
 
 **Context**: Adding `ToastProvider` to `App.tsx` when `ReadingStatusButton` (used inside many pages) calls `useToast()`.

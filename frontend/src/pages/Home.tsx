@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import type { ShelfEntry, SimilarBook } from '../api/client'
+import type { FeedEntry, ShelfEntry, SimilarBook } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
 function BookCard({ book, score, explanation }: SimilarBook) {
@@ -82,15 +82,62 @@ function CurrentlyReadingShelf({ entries }: { entries: ShelfEntry[] }) {
   )
 }
 
+const FEED_STATUS_LABELS: Record<string, string> = {
+  read: 'finished',
+  currently_reading: 'reading',
+  want_to_read: 'wants to read',
+  rating: 'rated',
+  review: 'reviewed',
+}
+
+function FriendFeedStrip({ feed }: { feed: FeedEntry[] }) {
+  if (feed.length === 0) return null
+  return (
+    <div>
+      <div className="flex items-baseline gap-3 mb-3">
+        <h2 className="text-xl font-semibold text-gray-800">Friends</h2>
+        <Link to="/friends" className="text-sm text-indigo-600 hover:underline">See all →</Link>
+      </div>
+      <div className="space-y-2">
+        {feed.slice(0, 5).map((entry, i) => (
+          <div key={i} className="flex items-center gap-3 bg-white border border-gray-100 rounded-lg px-3 py-2.5">
+            {entry.book_cover_url ? (
+              <img src={entry.book_cover_url} alt="" className="w-8 h-11 object-cover rounded shrink-0 shadow-sm" />
+            ) : (
+              <div className="w-8 h-11 bg-gray-100 rounded shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-gray-700 leading-snug">
+                <span className="font-medium">{entry.user.name ?? entry.user.email}</span>
+                {' '}{FEED_STATUS_LABELS[entry.event_type]}{' '}
+                <Link to={`/books/${entry.book_id}`} className="font-medium text-indigo-600 hover:underline">
+                  {entry.book_title}
+                </Link>
+                {(entry.event_type === 'rating' || entry.event_type === 'review') && entry.rating != null && (
+                  <span className="ml-1 text-amber-500 text-xs">{'★'.repeat(entry.rating)}</span>
+                )}
+              </p>
+              {entry.event_type === 'review' && entry.review_text && (
+                <p className="text-xs text-gray-400 italic truncate">"{entry.review_text}"</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function Home() {
   const { session } = useAuth()
   const [recs, setRecs] = useState<SimilarBook[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
   const [shelf, setShelf] = useState<ShelfEntry[]>([])
   const [shelfLoading, setShelfLoading] = useState(false)
+  const [feed, setFeed] = useState<FeedEntry[]>([])
 
   useEffect(() => {
-    if (!session) { setShelf([]); setRecs([]); return }
+    if (!session) { setShelf([]); setRecs([]); setFeed([]); return }
 
     setShelfLoading(true)
     api.shelf.my(session.access_token)
@@ -103,6 +150,8 @@ export function Home() {
       .then(setRecs)
       .catch(() => {})
       .finally(() => setRecsLoading(false))
+
+    api.users.feed(session.access_token, 10).then(setFeed).catch(() => {})
   }, [session])
 
   const currentlyReading = shelf.filter(e => e.status === 'currently_reading')
@@ -152,6 +201,9 @@ export function Home() {
               </Link>
             </div>
           )}
+
+          {/* Friends feed */}
+          <FriendFeedStrip feed={feed} />
 
           {/* For You */}
           <div>
