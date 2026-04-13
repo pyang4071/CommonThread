@@ -159,3 +159,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 - [x] FastEmbed model pre-warm in lifespan — `main.py`
 - [x] Production CORS `CORS_ORIGINS` setting — `config.py`
 - [x] Docker Compose deployment config — `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`
+- [x] Profile page with name edit + content blacklist (blocked genres/types/tones) — `Profile.tsx`, `UserPreferences` schema, JSONB migration `k5l6m7n8o9p0`
+- [x] `profile_public` privacy toggle on profile page — stored in `preferences` JSONB, toggle switch in Profile UI
+- [x] Admin-only nav links hidden from standard users — `ProtectedRoute` `adminOnly` prop, `App.tsx`
+- [x] Friends / follow system — `user_follows` table (migration `l6m7n8o9p0q1`), follow/unfollow/search endpoints, activity feed, `Friends.tsx` page, `UserProfile.tsx` page, friend strip on `Home.tsx`

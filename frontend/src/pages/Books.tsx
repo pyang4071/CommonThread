@@ -130,7 +130,7 @@ function ChipPicker<T>({
 // ── main component ────────────────────────────────────────────────────────────
 
 export function Books() {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
 
   // Reference data
   const [genres, setGenres] = useState<Genre[]>([])
@@ -177,6 +177,8 @@ export function Books() {
   const [semanticError, setSemanticError] = useState<string | null>(null)
 
   // ── derived ──
+  const blocked = profile?.preferences ?? { blocked_genre_ids: [], blocked_book_type_ids: [], blocked_tone_ids: [] }
+
   const sharedFilterParams = {
     categories: selectedCategories,
     genreIds: selectedGenres.map(g => g.genre_id),
@@ -185,6 +187,9 @@ export function Books() {
     pacing,
     excludeTropeIds: excludedTropes.map(t => t.trope_id),
     excludeArchetypeIds: excludedArchetypes.map(a => a.archetype_id),
+    excludeGenreIds: blocked.blocked_genre_ids,
+    excludeBookTypeIds: blocked.blocked_book_type_ids,
+    excludeToneIds: blocked.blocked_tone_ids,
   }
 
   const activeFilterCount =
