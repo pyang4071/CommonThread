@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Book, BookType, Genre, SimilarBook, Tone, Trope } from '../api/client'
-import { Table } from '../components/Table'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
 import { useAuth } from '../contexts/AuthContext'
@@ -63,12 +63,26 @@ function ChipPicker<T>({
   chipColor?: 'include' | 'exclude'
 }) {
   const [query, setQuery] = useState('')
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const ref = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
   const selectedKeys = new Set(selected.map(getKey))
 
   const filtered = query.trim()
     ? options.filter(o => !selectedKeys.has(getKey(o)) && getName(o).toLowerCase().includes(query.toLowerCase()))
     : []
+  const visible = filtered.slice(0, 8)
+
+  // Reset highlight when filtered list changes
+  useEffect(() => { setHighlightedIndex(-1) }, [query])
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const el = listRef.current.children[highlightedIndex] as HTMLElement | undefined
+      el?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,11 +92,29 @@ function ChipPicker<T>({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!visible.length) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightedIndex(i => Math.min(i + 1, visible.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightedIndex(i => Math.max(i - 1, 0))
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault()
+      onAdd(visible[highlightedIndex])
+      setQuery('')
+    } else if (e.key === 'Escape') {
+      setQuery('')
+    }
+  }
+
   const chipClass = chipColor === 'exclude'
     ? 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200'
     : 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200'
   const ringClass = chipColor === 'exclude' ? 'focus:ring-red-300' : 'focus:ring-indigo-300'
   const hoverClass = chipColor === 'exclude' ? 'hover:bg-red-50' : 'hover:bg-indigo-50'
+  const highlightClass = chipColor === 'exclude' ? 'bg-red-50' : 'bg-indigo-50'
 
   return (
     <div>
@@ -101,17 +133,21 @@ function ChipPicker<T>({
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 ${ringClass}`}
+          aria-autocomplete="list"
+          aria-expanded={visible.length > 0}
         />
-        {filtered.length > 0 && (
-          <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-44 overflow-y-auto">
-            {filtered.slice(0, 8).map(item => (
-              <li key={getKey(item)}>
+        {visible.length > 0 && (
+          <ul ref={listRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-44 overflow-y-auto" role="listbox">
+            {visible.map((item, idx) => (
+              <li key={getKey(item)} role="option" aria-selected={idx === highlightedIndex}>
                 <button
                   type="button"
+                  onMouseEnter={() => setHighlightedIndex(idx)}
                   onClick={() => { onAdd(item); setQuery('') }}
-                  className={`w-full text-left px-3 py-2 text-sm ${hoverClass} text-gray-800`}
+                  className={`w-full text-left px-3 py-2 text-sm text-gray-800 ${idx === highlightedIndex ? highlightClass : hoverClass}`}
                 >
                   <span className="font-medium">{getName(item)}</span>
                   {getSecondary?.(item) && (
@@ -130,7 +166,7 @@ function ChipPicker<T>({
 // ── main component ────────────────────────────────────────────────────────────
 
 export function Books() {
-  const { session, profile } = useAuth()
+  const { session, profile, isAdmin } = useAuth()
 
   // Reference data
   const [genres, setGenres] = useState<Genre[]>([])
@@ -298,6 +334,8 @@ export function Books() {
     }).then(setBooks).catch(() => {})
   }
 
+  const [bookToDelete, setBookToDelete] = useState<Book | null>(null)
+
   const hasAnything = activeFilterCount > 0 || search || semanticResults
 
   // ── render ──
@@ -381,7 +419,7 @@ export function Books() {
 
       {/* ── Filter panel ── */}
       {filtersOpen && (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-5">
+        <div className="animate-panel-in bg-white border border-gray-200 rounded-xl p-5 space-y-5">
 
           {/* Include section */}
           <div>
@@ -508,7 +546,7 @@ export function Books() {
 
       {/* ── Vibe search panel ── */}
       {vibeOpen && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-3">
+        <div className="animate-panel-in bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-3">
           <div>
             <p className="text-sm font-semibold text-indigo-800">Vibe Search</p>
             <p className="text-xs text-indigo-500 mt-0.5">
@@ -632,81 +670,78 @@ export function Books() {
         <>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           {loading ? (
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {['', 'Title', 'Author', 'ISBN', 'Published', 'Avg Rating', ...(session ? ['Shelf'] : [])].map(h => (
-                      <th key={h} className="px-4 py-3 text-left font-medium text-gray-600 uppercase tracking-wider">{h}</th>
-                    ))}
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i}>
-                      <td className="px-4 py-3"><div className="w-8 h-12 bg-gray-200 rounded animate-pulse" /></td>
-                      <td className="px-4 py-3"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                      <td className="px-4 py-3"><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
-                      <td className="px-4 py-3"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
-                      <td className="px-4 py-3"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
-                      <td className="px-4 py-3"><div className="h-4 w-10 bg-gray-200 rounded animate-pulse" /></td>
-                      {session && <td className="px-4 py-3"><div className="h-6 w-24 bg-gray-200 rounded-full animate-pulse" /></td>}
-                      <td className="px-4 py-3" />
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse flex">
+                  <div className="w-20 shrink-0 bg-gray-200 self-stretch" />
+                  <div className="p-3 flex-1 space-y-2">
+                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+                    <div className="h-3 w-1/2 bg-gray-200 rounded" />
+                    <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <>
               {!error && books.length === 0 && (
                 <p className="text-gray-400 text-sm">No books match your filters.</p>
               )}
-              <Table
-                data={books.slice(0, PAGE_SIZE)}
-                rowKey={(b) => b.book_id}
-                onDelete={remove}
-                deleteLabel={(b) => b.title}
-                columns={[
-                  { header: '', accessor: (b) => b.cover_url
-                    ? <img src={b.cover_url} alt="" className="w-8 h-12 object-cover rounded" />
-                    : null },
-                  { header: 'Title', accessor: (b) => (
-                    <Link to={`/books/${b.book_id}`} className="text-indigo-600 hover:underline font-medium">
-                      {b.title}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {books.slice(0, PAGE_SIZE).map(b => (
+                  <div key={b.book_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
+                    <Link to={`/books/${b.book_id}`} className="flex flex-1 min-h-0">
+                      {b.cover_url ? (
+                        <img src={b.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch" />
+                      ) : (
+                        <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none">📖</div>
+                      )}
+                      <div className="p-3 flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{b.title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{b.author.name}</p>
+                        {b.publication_date && (
+                          <p className="text-xs text-gray-400 mt-0.5">{new Date(b.publication_date).getFullYear()}</p>
+                        )}
+                        {b.avg_rating != null ? (
+                          <span className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">
+                            <span className="text-amber-400">★</span>{b.avg_rating.toFixed(1)}
+                          </span>
+                        ) : (
+                          <span className="mt-1 block text-xs text-gray-300">No ratings</span>
+                        )}
+                      </div>
                     </Link>
-                  )},
-                  { header: 'Author', accessor: (b) => b.author.name },
-                  { header: 'ISBN', accessor: (b) => b.isbn },
-                  { header: 'Published', accessor: (b) => b.publication_date },
-                  {
-                    header: 'Avg Rating',
-                    accessor: (b: Book) => b.avg_rating != null
-                      ? <span className="flex items-center gap-1 text-sm font-semibold text-amber-600"><span className="text-amber-400">★</span>{b.avg_rating.toFixed(1)}</span>
-                      : <span className="text-sm text-gray-300">—</span>,
-                  },
-                  ...(session ? [{
-                    header: 'Shelf',
-                    accessor: (b: Book) => (
-                      <ReadingStatusButton
-                        bookId={b.book_id}
-                        token={session.access_token}
-                        initial={shelfMap[b.book_id] ?? null}
-                        onChange={s => {
-                          setShelfMap(prev => {
-                            const next = { ...prev }
-                            if (s === null) delete next[b.book_id]
-                            else next[b.book_id] = s
-                            return next
-                          })
-                          if (shelfFilter) setShelfVersion(v => v + 1)
-                        }}
-                      />
-                    ),
-                  }] : []),
-                ]}
-              />
+                    {(session || isAdmin) && (
+                      <div className="px-3 pb-3 flex items-center justify-between gap-2">
+                        {session ? (
+                          <ReadingStatusButton
+                            bookId={b.book_id}
+                            token={session.access_token}
+                            initial={shelfMap[b.book_id] ?? null}
+                            onChange={s => {
+                              setShelfMap(prev => {
+                                const next = { ...prev }
+                                if (s === null) delete next[b.book_id]
+                                else next[b.book_id] = s
+                                return next
+                              })
+                              if (shelfFilter) setShelfVersion(v => v + 1)
+                            }}
+                          />
+                        ) : <span />}
+                        {isAdmin && (
+                          <button
+                            onClick={() => setBookToDelete(b)}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
               {/* Pagination controls */}
               {(page > 0 || books.length > PAGE_SIZE) && (
                 <div className="flex items-center justify-between pt-2">
@@ -717,7 +752,12 @@ export function Books() {
                   >
                     ← Previous
                   </button>
-                  <span className="text-sm text-gray-500">Page {page + 1}</span>
+                  <span className="text-sm text-gray-500">
+                    Page {page + 1}
+                    {' · '}
+                    {page * PAGE_SIZE + 1}–{page * PAGE_SIZE + Math.min(books.length, PAGE_SIZE)}
+                    {books.length > PAGE_SIZE ? '+' : ''}
+                  </span>
                   <button
                     onClick={() => setPage(p => p + 1)}
                     disabled={books.length <= PAGE_SIZE}
@@ -730,6 +770,16 @@ export function Books() {
             </>
           )}
         </>
+      )}
+
+      {bookToDelete && (
+        <ConfirmModal
+          title="Delete book"
+          message={`Delete "${bookToDelete.title}" permanently? This cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={() => { remove(bookToDelete); setBookToDelete(null) }}
+          onCancel={() => setBookToDelete(null)}
+        />
       )}
     </div>
   )

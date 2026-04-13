@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Trope } from '../api/client'
-import { Table } from '../components/Table'
 import { useAuth } from '../contexts/AuthContext'
 
 const EMPTY = { name: '', description: '', category: '' }
+
+const CATEGORY_COLORS: Record<string, string> = {
+  Romance: 'bg-pink-100 text-pink-700',
+  Fantasy: 'bg-purple-100 text-purple-700',
+  Character: 'bg-blue-100 text-blue-700',
+  Narrative: 'bg-amber-100 text-amber-700',
+  Setting: 'bg-green-100 text-green-700',
+}
 
 export function Tropes() {
   const { isAdmin } = useAuth()
@@ -12,6 +20,8 @@ export function Tropes() {
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
 
   const load = () =>
     api.tropes.list().then(setTropes).catch((e) => setError(e.message)).finally(() => setLoading(false))
@@ -33,6 +43,14 @@ export function Tropes() {
     await api.tropes.delete(trope.trope_id)
     load()
   }
+
+  const categories = Array.from(new Set(tropes.map(t => t.category))).sort()
+
+  const filtered = tropes.filter(t => {
+    const matchesQuery = !query.trim() || t.name.toLowerCase().includes(query.toLowerCase()) || (t.description ?? '').toLowerCase().includes(query.toLowerCase())
+    const matchesCategory = !categoryFilter || t.category === categoryFilter
+    return matchesQuery && matchesCategory
+  })
 
   return (
     <div className="space-y-6">
@@ -56,21 +74,83 @@ export function Tropes() {
         </form>
       )}
 
-      {loading && <p className="text-gray-400 text-sm">Loading…</p>}
+      {/* Search + filter */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <input
+          type="text"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Search tropes…"
+          className="flex-1 min-w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        />
+        <select
+          value={categoryFilter}
+          onChange={e => setCategoryFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+        >
+          <option value="">All categories</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(query || categoryFilter) && (
+          <button onClick={() => { setQuery(''); setCategoryFilter('') }}
+            className="text-sm text-gray-400 hover:text-gray-600">
+            Clear
+          </button>
+        )}
+        {!loading && (
+          <span className="text-sm text-gray-400">{filtered.length} trope{filtered.length !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      <Table
-        data={tropes}
-        rowKey={(t) => t.trope_id}
-        onDelete={isAdmin ? remove : undefined}
-        deleteLabel={(t) => t.name}
-        columns={[
-          { header: 'ID', accessor: (t) => t.trope_id },
-          { header: 'Name', accessor: (t) => t.name },
-          { header: 'Category', accessor: (t) => t.category },
-          { header: 'Description', accessor: (t) => t.description },
-        ]}
-      />
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 animate-pulse space-y-2">
+              <div className="h-4 w-2/3 bg-gray-200 rounded" />
+              <div className="h-3 w-1/3 bg-gray-200 rounded" />
+              <div className="h-3 w-full bg-gray-200 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <p className="text-gray-400 text-sm">No tropes match your search.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(trope => {
+            const badgeClass = CATEGORY_COLORS[trope.category] ?? 'bg-gray-100 text-gray-600'
+            return (
+              <div key={trope.trope_id} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col gap-2">
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    to={`/tropes/${trope.trope_id}`}
+                    className="font-medium text-gray-800 hover:text-indigo-600 transition-colors text-sm leading-snug"
+                  >
+                    {trope.name}
+                  </Link>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}>
+                    {trope.category}
+                  </span>
+                </div>
+                {trope.description && (
+                  <p className="text-xs text-gray-500 line-clamp-2">{trope.description}</p>
+                )}
+                {isAdmin && (
+                  <div className="mt-auto pt-1 flex justify-end">
+                    <button
+                      onClick={() => remove(trope)}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

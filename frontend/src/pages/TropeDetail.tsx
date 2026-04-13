@@ -69,7 +69,11 @@ export function TropeDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/tropes" className="text-sm text-indigo-600 hover:underline">← Tropes</Link>
+      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link to="/tropes" className="text-indigo-600 hover:underline">Tropes</Link>
+        <span>›</span>
+        <span className="text-gray-600 truncate">{trope.name}</span>
+      </nav>
 
       <div>
         <div className="flex items-center gap-3 mb-1">

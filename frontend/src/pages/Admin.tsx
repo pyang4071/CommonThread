@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -30,23 +30,35 @@ export function Admin() {
   const { session } = useAuth()
   const [status, setStatus] = useState<EmbedStatus | null>(null)
   const [statusLoading, setStatusLoading] = useState(true)
+  const [polling, setPolling] = useState(false)
   const [running, setRunning] = useState(false)
   const [lastQueued, setLastQueued] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [coverRunning, setCoverRunning] = useState(false)
   const [coversQueued, setCoversQueued] = useState<number | null>(null)
   const [coverError, setCoverError] = useState<string | null>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const loadStatus = () => {
     if (!session) return
     setStatusLoading(true)
     api.admin.embedStatus(session.access_token)
-      .then(setStatus)
+      .then(s => {
+        setStatus(s)
+        // Stop polling once nothing is pending
+        if (s.pending === 0) {
+          setPolling(false)
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setStatusLoading(false))
   }
 
   useEffect(() => { loadStatus() }, [session])
+
+  // Clear interval on unmount
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
   const handleEmbedAll = async () => {
     if (!session) return
@@ -56,8 +68,12 @@ export function Admin() {
     try {
       const result = await api.admin.embedAll(session.access_token)
       setLastQueued(result.queued)
-      // Refresh status after a short delay so the counts reflect the kick-off
+      // Start polling every 4s to watch live progress
       setTimeout(loadStatus, 800)
+      if (result.queued > 0 && !pollRef.current) {
+        setPolling(true)
+        pollRef.current = setInterval(loadStatus, 4000)
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to start embedding job.')
     } finally {
@@ -86,8 +102,15 @@ export function Admin() {
 
       {/* Embedding panel */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
-        <div>
+        <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold text-gray-800">Embedding Index</h2>
+          {polling && (
+            <span className="text-xs text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full animate-pulse">
+              Refreshing…
+            </span>
+          )}
+        </div>
+        <div>
           <p className="text-sm text-gray-500 mt-0.5">
             Each book needs to be embedded before it appears in vibe search and
             similarity recommendations. Books are embedded automatically when

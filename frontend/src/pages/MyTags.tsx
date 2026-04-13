@@ -164,9 +164,12 @@ export function MyTags() {
           <p className="text-sm text-gray-500 mt-1">
             {totalTags === 0
               ? 'No personal tags yet.'
-              : `${totalTags} tag${totalTags !== 1 ? 's' : ''} across ${entries.length} book${entries.length !== 1 ? 's' : ''} — shaping your recommendations`}
+              : `${totalTags} tag${totalTags !== 1 ? 's' : ''} across ${entries.length} book${entries.length !== 1 ? 's' : ''}`}
           </p>
         )}
+        <p className="text-sm text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 mt-3">
+          Your tags are combined with system tropes to build your taste profile — they're how you tell the recommendation engine what actually resonated with you in each book.
+        </p>
       </div>
 
       {loading ? (
