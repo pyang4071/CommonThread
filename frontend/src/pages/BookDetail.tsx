@@ -51,10 +51,11 @@ export function BookDetail() {
   const { state } = useLocation()
   const backTo: string = state?.from ?? '/books'
   const backLabel = backTo === '/shelf' ? '← Back to Shelf' : '← Back to Books'
-  const { session } = useAuth()
+  const { session, isAdmin } = useAuth()
   const toast = useToast()
   const [book, setBook] = useState<BookDetailType | null>(null)
   const [similar, setSimilar] = useState<SimilarBook[]>([])
+  const [similarLoaded, setSimilarLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [myRating, setMyRating] = useState<number | null>(null)
@@ -71,8 +72,18 @@ export function BookDetail() {
   const [allArchetypes, setAllArchetypes] = useState<Archetype[]>([])
   const [addTropeId, setAddTropeId] = useState<number | ''>('')
   const [addTropeWeight, setAddTropeWeight] = useState(0.8)
+  const [tropeTagQuery, setTropeTagQuery] = useState('')
+  const [showTropeTagDrop, setShowTropeTagDrop] = useState(false)
+  const [tropeTagHighlight, setTropeTagHighlight] = useState(-1)
+  const tropeTagRef = useRef<HTMLDivElement>(null)
+  const tropeTagListRef = useRef<HTMLUListElement>(null)
   const [addArchetypeId, setAddArchetypeId] = useState<number | ''>('')
   const [addArchetypeImportance, setAddArchetypeImportance] = useState(7)
+  const [archetypeTagQuery, setArchetypeTagQuery] = useState('')
+  const [showArchetypeTagDrop, setShowArchetypeTagDrop] = useState(false)
+  const [archetypeTagHighlight, setArchetypeTagHighlight] = useState(-1)
+  const archetypeTagRef = useRef<HTMLDivElement>(null)
+  const archetypeTagListRef = useRef<HTMLUListElement>(null)
   const [tagSaving, setTagSaving] = useState(false)
 
   useEffect(() => {
@@ -83,7 +94,7 @@ export function BookDetail() {
       .then(setBook)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-    api.books.similar(bookId).then(setSimilar).catch(() => {})
+    api.books.similar(bookId).then(s => { setSimilar(s); setSimilarLoaded(true) }).catch(() => setSimilarLoaded(true))
     api.books.getReviews(bookId).then(setReviews).catch(() => {})
     api.books.getSeries(bookId).then(setSeriesBooks).catch(() => {})
   }, [id])
@@ -107,8 +118,70 @@ export function BookDetail() {
     api.archetypes.list().then(setAllArchetypes).catch(() => {})
   }, [id, session])
 
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setShowBackToTop(window.scrollY > 300)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const taggedTropeIds = new Set(myTags.tropes.map(t => t.trope.trope_id))
   const taggedArchetypeIds = new Set(myTags.archetypes.map(a => a.archetype.archetype_id))
+
+  const filteredTagTropes = tropeTagQuery.trim()
+    ? allTropes.filter(t => !taggedTropeIds.has(t.trope_id) && t.name.toLowerCase().includes(tropeTagQuery.toLowerCase()))
+    : []
+
+  const filteredTagArchetypes = archetypeTagQuery.trim()
+    ? allArchetypes.filter(a => !taggedArchetypeIds.has(a.archetype_id) && a.name.toLowerCase().includes(archetypeTagQuery.toLowerCase()))
+    : []
+
+  useEffect(() => {
+    if (tropeTagHighlight >= 0 && tropeTagListRef.current) {
+      const el = tropeTagListRef.current.children[tropeTagHighlight] as HTMLElement | undefined
+      el?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [tropeTagHighlight])
+
+  useEffect(() => {
+    if (archetypeTagHighlight >= 0 && archetypeTagListRef.current) {
+      const el = archetypeTagListRef.current.children[archetypeTagHighlight] as HTMLElement | undefined
+      el?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [archetypeTagHighlight])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tropeTagRef.current && !tropeTagRef.current.contains(e.target as Node)) setShowTropeTagDrop(false)
+      if (archetypeTagRef.current && !archetypeTagRef.current.contains(e.target as Node)) setShowArchetypeTagDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleTropeTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!filteredTagTropes.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setTropeTagHighlight(i => Math.min(i + 1, filteredTagTropes.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setTropeTagHighlight(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter' && tropeTagHighlight >= 0) {
+      e.preventDefault()
+      const t = filteredTagTropes[tropeTagHighlight]
+      setAddTropeId(t.trope_id); setTropeTagQuery(t.name); setShowTropeTagDrop(false); setTropeTagHighlight(-1)
+    }
+    else if (e.key === 'Escape') { setShowTropeTagDrop(false) }
+  }
+
+  const handleArchetypeTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!filteredTagArchetypes.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setArchetypeTagHighlight(i => Math.min(i + 1, filteredTagArchetypes.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setArchetypeTagHighlight(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter' && archetypeTagHighlight >= 0) {
+      e.preventDefault()
+      const a = filteredTagArchetypes[archetypeTagHighlight]
+      setAddArchetypeId(a.archetype_id); setArchetypeTagQuery(a.name); setShowArchetypeTagDrop(false); setArchetypeTagHighlight(-1)
+    }
+    else if (e.key === 'Escape') { setShowArchetypeTagDrop(false) }
+  }
 
   const handleAddTrope = async () => {
     if (!session || !id || addTropeId === '') return
@@ -119,7 +192,7 @@ export function BookDetail() {
         ...prev,
         tropes: [...prev.tropes.filter(t => t.trope.trope_id !== addTropeId), entry],
       }))
-      setAddTropeId('')
+      setAddTropeId(''); setTropeTagQuery('')
       toast.success('Trope tag added.')
     } catch {
       toast.error('Failed to add trope tag.')
@@ -147,7 +220,7 @@ export function BookDetail() {
         ...prev,
         archetypes: [...prev.archetypes.filter(a => a.archetype.archetype_id !== addArchetypeId), entry],
       }))
-      setAddArchetypeId('')
+      setAddArchetypeId(''); setArchetypeTagQuery('')
       toast.success('Archetype tag added.')
     } catch {
       toast.error('Failed to add archetype tag.')
@@ -230,17 +303,23 @@ export function BookDetail() {
 
   return (
     <div className="space-y-8">
-      {/* Back */}
-      <div className="flex items-center justify-between">
-        <Link to={backTo} className="text-sm text-indigo-600 hover:underline">
-          {backLabel}
-        </Link>
-        <button
-          onClick={() => navigate(`/books/${id}/edit`)}
-          className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-        >
-          Edit
-        </button>
+      {/* Breadcrumb + Edit */}
+      <div className="flex items-center justify-between gap-4">
+        <nav className="flex items-center gap-1.5 text-sm text-gray-400 min-w-0">
+          <Link to={backTo} className="text-indigo-600 hover:underline shrink-0">
+            {backTo === '/shelf' ? 'My Shelf' : 'Books'}
+          </Link>
+          <span className="shrink-0">›</span>
+          <span className="text-gray-600 truncate">{book.title}</span>
+        </nav>
+        {isAdmin && (
+          <button
+            onClick={() => navigate(`/books/${id}/edit`)}
+            className="shrink-0 px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Edit
+          </button>
+        )}
       </div>
 
       {/* Header */}
@@ -445,7 +524,7 @@ export function BookDetail() {
         <div className="border border-indigo-100 rounded-xl p-5 bg-indigo-50/40">
           <h2 className="text-lg font-semibold text-gray-800 mb-1">Your Tags</h2>
           <p className="text-xs text-gray-500 mb-4">
-            Your personal take on this book — used only to improve your recommendations.
+            Your tags are combined with system tropes to build your taste profile — they're how you tell the recommendation engine what actually resonated with you in this book.
           </p>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -467,32 +546,49 @@ export function BookDetail() {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2 items-center">
-                <select
-                  value={addTropeId}
-                  onChange={e => setAddTropeId(e.target.value ? Number(e.target.value) : '')}
-                  className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white"
-                >
-                  <option value="">Add a trope…</option>
-                  {allTropes
-                    .filter(t => !taggedTropeIds.has(t.trope_id))
-                    .map(t => (
-                      <option key={t.trope_id} value={t.trope_id}>{t.name}</option>
-                    ))}
-                </select>
-                <input
-                  type="range" min={0} max={1} step={0.05}
-                  value={addTropeWeight}
-                  onChange={e => setAddTropeWeight(Number(e.target.value))}
-                  className="w-20"
-                  title={`Weight: ${Math.round(addTropeWeight * 100)}%`}
-                />
-                <span className="text-xs text-gray-500 w-8">{Math.round(addTropeWeight * 100)}%</span>
-                <button
-                  onClick={handleAddTrope}
-                  disabled={addTropeId === '' || tagSaving}
-                  className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
-                >Add</button>
+              <div className="space-y-2">
+                <div ref={tropeTagRef} className="relative">
+                  <input
+                    value={tropeTagQuery}
+                    onChange={e => { setTropeTagQuery(e.target.value); setAddTropeId(''); setShowTropeTagDrop(true); setTropeTagHighlight(-1) }}
+                    onFocus={() => setShowTropeTagDrop(true)}
+                    onKeyDown={handleTropeTagKeyDown}
+                    placeholder="Search tropes to add…"
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  {showTropeTagDrop && filteredTagTropes.length > 0 && (
+                    <ul ref={tropeTagListRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {filteredTagTropes.slice(0, 8).map((t, idx) => (
+                        <li key={t.trope_id}>
+                          <button
+                            type="button"
+                            onMouseEnter={() => setTropeTagHighlight(idx)}
+                            onClick={() => { setAddTropeId(t.trope_id); setTropeTagQuery(t.name); setShowTropeTagDrop(false); setTropeTagHighlight(-1) }}
+                            className={`w-full text-left px-3 py-2 text-sm text-gray-800 ${idx === tropeTagHighlight ? 'bg-indigo-50' : 'hover:bg-indigo-50'}`}
+                          >
+                            <span className="font-medium">{t.name}</span>
+                            <span className="ml-1.5 text-xs text-gray-400">{t.category}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="range" min={0} max={1} step={0.05}
+                    value={addTropeWeight}
+                    onChange={e => setAddTropeWeight(Number(e.target.value))}
+                    className="flex-1"
+                    title={`Weight: ${Math.round(addTropeWeight * 100)}%`}
+                  />
+                  <span className="text-xs text-gray-500 w-8 shrink-0">{Math.round(addTropeWeight * 100)}%</span>
+                  <button
+                    onClick={handleAddTrope}
+                    disabled={addTropeId === '' || tagSaving}
+                    className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 shrink-0"
+                  >Add</button>
+                </div>
               </div>
             </div>
 
@@ -515,32 +611,48 @@ export function BookDetail() {
                   ))}
                 </div>
               )}
-              <div className="flex gap-2 items-center">
-                <select
-                  value={addArchetypeId}
-                  onChange={e => setAddArchetypeId(e.target.value ? Number(e.target.value) : '')}
-                  className="flex-1 text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white"
-                >
-                  <option value="">Add an archetype…</option>
-                  {allArchetypes
-                    .filter(a => !taggedArchetypeIds.has(a.archetype_id))
-                    .map(a => (
-                      <option key={a.archetype_id} value={a.archetype_id}>{a.name}</option>
-                    ))}
-                </select>
-                <input
-                  type="range" min={1} max={10} step={1}
-                  value={addArchetypeImportance}
-                  onChange={e => setAddArchetypeImportance(Number(e.target.value))}
-                  className="w-20"
-                  title={`Importance: ${addArchetypeImportance}/10`}
-                />
-                <span className="text-xs text-gray-500 w-8">{addArchetypeImportance}/10</span>
-                <button
-                  onClick={handleAddArchetype}
-                  disabled={addArchetypeId === '' || tagSaving}
-                  className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
-                >Add</button>
+              <div className="space-y-2">
+                <div ref={archetypeTagRef} className="relative">
+                  <input
+                    value={archetypeTagQuery}
+                    onChange={e => { setArchetypeTagQuery(e.target.value); setAddArchetypeId(''); setShowArchetypeTagDrop(true); setArchetypeTagHighlight(-1) }}
+                    onFocus={() => setShowArchetypeTagDrop(true)}
+                    onKeyDown={handleArchetypeTagKeyDown}
+                    placeholder="Search archetypes to add…"
+                    className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  {showArchetypeTagDrop && filteredTagArchetypes.length > 0 && (
+                    <ul ref={archetypeTagListRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {filteredTagArchetypes.slice(0, 8).map((a, idx) => (
+                        <li key={a.archetype_id}>
+                          <button
+                            type="button"
+                            onMouseEnter={() => setArchetypeTagHighlight(idx)}
+                            onClick={() => { setAddArchetypeId(a.archetype_id); setArchetypeTagQuery(a.name); setShowArchetypeTagDrop(false); setArchetypeTagHighlight(-1) }}
+                            className={`w-full text-left px-3 py-2 text-sm text-gray-800 ${idx === archetypeTagHighlight ? 'bg-indigo-50' : 'hover:bg-indigo-50'}`}
+                          >
+                            {a.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="range" min={1} max={10} step={1}
+                    value={addArchetypeImportance}
+                    onChange={e => setAddArchetypeImportance(Number(e.target.value))}
+                    className="flex-1"
+                    title={`Importance: ${addArchetypeImportance}/10`}
+                  />
+                  <span className="text-xs text-gray-500 w-8 shrink-0">{addArchetypeImportance}/10</span>
+                  <button
+                    onClick={handleAddArchetype}
+                    disabled={addArchetypeId === '' || tagSaving}
+                    className="px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 shrink-0"
+                  >Add</button>
+                </div>
               </div>
             </div>
           </div>
@@ -606,46 +718,74 @@ export function BookDetail() {
       )}
 
       {/* Similar Books */}
-      {similar.length > 0 && (
+      {similarLoaded && (
         <div>
           <h2 className="text-lg font-semibold text-gray-800 mb-1">Books Like This</h2>
           <p className="text-xs text-gray-400 mb-4">Matched by tropes, archetypes &amp; genres</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {similar.map(({ book: b, score, explanation }) => {
-              const sharedTags = [
-                ...(explanation?.shared_tropes ?? []),
-                ...(explanation?.shared_archetypes ?? []),
-              ]
-              return (
-                <Link
-                  key={b.book_id}
-                  to={`/books/${b.book_id}`}
-                  className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex gap-3"
-                >
-                  {b.cover_url && (
-                    <img src={b.cover_url} alt="" className="w-12 shrink-0 rounded object-cover self-start" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-800 text-sm truncate">{b.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{b.author.name}</p>
-                      </div>
-                      <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                        {Math.round(score * 100)}%
-                      </span>
-                    </div>
-                    {sharedTags.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">
-                        {sharedTags.join(' · ')}
-                      </p>
+          {similar.length === 0 ? (
+            <div className="bg-white border border-dashed border-gray-200 rounded-lg p-6 text-center space-y-1">
+              <p className="text-sm text-gray-400">No similar books found yet — this book may not be embedded.</p>
+              {isAdmin && (
+                <p className="text-xs text-gray-400">
+                  Visit the{' '}
+                  <Link to="/admin" className="text-indigo-500 hover:underline">Admin panel</Link>
+                  {' '}to embed pending books.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {similar.map(({ book: b, score, explanation }) => {
+                const sharedTags = [
+                  ...(explanation?.shared_tropes ?? []),
+                  ...(explanation?.shared_archetypes ?? []),
+                ]
+                return (
+                  <Link
+                    key={b.book_id}
+                    to={`/books/${b.book_id}`}
+                    className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex gap-3"
+                  >
+                    {b.cover_url && (
+                      <img src={b.cover_url} alt="" className="w-12 shrink-0 rounded object-cover self-start" />
                     )}
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-800 text-sm truncate">{b.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{b.author.name}</p>
+                        </div>
+                        <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                          {Math.round(score * 100)}%
+                        </span>
+                      </div>
+                      {sharedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {sharedTags.map(tag => (
+                            <span key={tag} className="px-1.5 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-600 border border-indigo-100">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Back to top */}
+      {showBackToTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="animate-panel-in fixed bottom-6 right-6 z-50 flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-gray-300 shadow-md text-sm text-gray-600 hover:bg-gray-50 hover:shadow-lg transition-shadow"
+          aria-label="Back to top"
+        >
+          ↑ Top
+        </button>
       )}
     </div>
   )

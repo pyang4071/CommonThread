@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
@@ -33,43 +34,106 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 
 function Header() {
   const { user, isAdmin, signOut } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const close = () => setMenuOpen(false)
+
+  const navLinks = (
+    <>
+      <NavLink to="/books" className={navClass} onClick={close}>Books</NavLink>
+      {user && <NavLink to="/shelf" className={navClass} onClick={close}>My Shelf</NavLink>}
+      {user && <NavLink to="/my-tags" className={navClass} onClick={close}>My Tags</NavLink>}
+      {user && <NavLink to="/friends" className={navClass} onClick={close}>Friends</NavLink>}
+      <NavLink to="/tropes" className={navClass} onClick={close}>Tropes</NavLink>
+      <NavLink to="/archetypes" className={navClass} onClick={close}>Archetypes</NavLink>
+      {isAdmin && <NavLink to="/genres" className={navClass} onClick={close}>Genres</NavLink>}
+      {isAdmin && <NavLink to="/book-types" className={navClass} onClick={close}>Book Types</NavLink>}
+      {isAdmin && <NavLink to="/tones" className={navClass} onClick={close}>Tones</NavLink>}
+      {isAdmin && <NavLink to="/admin" className={navClass} onClick={close}>Admin</NavLink>}
+    </>
+  )
+
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-6">
-      <Link to="/" className="text-lg font-bold text-indigo-600 tracking-tight">
-        CommonThread
-      </Link>
-      <nav className="flex gap-1 flex-1">
-        <NavLink to="/books" className={navClass}>Books</NavLink>
-        {user && <NavLink to="/shelf" className={navClass}>My Shelf</NavLink>}
-        {user && <NavLink to="/my-tags" className={navClass}>My Tags</NavLink>}
-        {user && <NavLink to="/friends" className={navClass}>Friends</NavLink>}
-        <NavLink to="/tropes" className={navClass}>Tropes</NavLink>
-        <NavLink to="/archetypes" className={navClass}>Archetypes</NavLink>
-        {isAdmin && <NavLink to="/genres" className={navClass}>Genres</NavLink>}
-        {isAdmin && <NavLink to="/book-types" className={navClass}>Book Types</NavLink>}
-        {isAdmin && <NavLink to="/tones" className={navClass}>Tones</NavLink>}
-        {isAdmin && <NavLink to="/admin" className={navClass}>Admin</NavLink>}
-      </nav>
-      {user ? (
-        <div className="flex items-center gap-3">
-          <Link to="/profile" className="text-sm text-gray-500 hover:text-indigo-600 transition-colors">
-            {user.user_metadata?.name ?? user.email}
-          </Link>
-          <button
-            onClick={signOut}
-            className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Sign out
-          </button>
+    <header className="bg-white border-b border-gray-200">
+      <div className="px-6 py-4 flex items-center gap-6">
+        <Link to="/" className="text-lg font-bold text-indigo-600 tracking-tight shrink-0">
+          CommonThread
+        </Link>
+        {/* Desktop nav */}
+        <nav className="hidden md:flex gap-1 flex-1">
+          {navLinks}
+        </nav>
+        {/* Desktop auth */}
+        <div className="hidden md:flex items-center gap-3 shrink-0">
+          {user ? (
+            <>
+              <Link to="/profile" className="text-sm text-gray-500 hover:text-indigo-600 transition-colors" onClick={close}>
+                {user.user_metadata?.name ?? user.email}
+              </Link>
+              <button
+                onClick={() => { signOut(); close() }}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth/login" className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md" onClick={close}>
+                Sign in
+              </Link>
+              <Link to="/auth/signup" className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={close}>
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <Link to="/auth/login" className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-md">
-            Sign in
-          </Link>
-          <Link to="/auth/signup" className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
-            Sign up
-          </Link>
+        {/* Hamburger (mobile only) */}
+        <button
+          className="md:hidden ml-auto p-2 rounded-md text-gray-600 hover:bg-gray-100"
+          onClick={() => setMenuOpen(o => !o)}
+          aria-label="Toggle menu"
+        >
+          {menuOpen ? (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="md:hidden border-t border-gray-100 px-4 py-3 flex flex-col gap-1 animate-panel-in">
+          {navLinks}
+          <div className="border-t border-gray-100 mt-2 pt-2 flex flex-col gap-1">
+            {user ? (
+              <>
+                <Link to="/profile" onClick={close}
+                  className="px-4 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100">
+                  {user.user_metadata?.name ?? user.email}
+                </Link>
+                <button onClick={() => { signOut(); close() }}
+                  className="text-left px-4 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100">
+                  Sign out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth/login" onClick={close}
+                  className="px-4 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100">
+                  Sign in
+                </Link>
+                <Link to="/auth/signup" onClick={close}
+                  className="px-4 py-2 rounded-md text-sm bg-indigo-600 text-white hover:bg-indigo-700">
+                  Sign up
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </header>
@@ -102,7 +166,7 @@ function App() {
           <Route path="/books" element={<Layout><ProtectedRoute><Books /></ProtectedRoute></Layout>} />
           <Route path="/books/new" element={<Layout><ProtectedRoute><AddBook /></ProtectedRoute></Layout>} />
           <Route path="/books/:id" element={<Layout><ProtectedRoute><BookDetail /></ProtectedRoute></Layout>} />
-          <Route path="/books/:id/edit" element={<Layout><ProtectedRoute><EditBook /></ProtectedRoute></Layout>} />
+          <Route path="/books/:id/edit" element={<Layout><ProtectedRoute adminOnly><EditBook /></ProtectedRoute></Layout>} />
           <Route path="/tropes" element={<Layout><ProtectedRoute><Tropes /></ProtectedRoute></Layout>} />
           <Route path="/tropes/:id" element={<Layout><TropeDetail /></Layout>} />
           <Route path="/archetypes" element={<Layout><ProtectedRoute><Archetypes /></ProtectedRoute></Layout>} />

@@ -55,7 +55,11 @@ export function ArchetypeDetail() {
 
   return (
     <div className="space-y-6">
-      <Link to="/archetypes" className="text-sm text-indigo-600 hover:underline">← Archetypes</Link>
+      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link to="/archetypes" className="text-indigo-600 hover:underline">Archetypes</Link>
+        <span>›</span>
+        <span className="text-gray-600 truncate">{archetype.name}</span>
+      </nav>
 
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">{archetype.name}</h1>

@@ -45,10 +45,27 @@ function BookCover({ entry, token, onChange }: {
   )
 }
 
+type SortKey = 'title' | 'newest' | 'oldest'
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'newest', label: 'Date Added (newest)' },
+  { value: 'oldest', label: 'Date Added (oldest)' },
+  { value: 'title',  label: 'Title A–Z' },
+]
+
+function sortEntries(entries: ShelfEntry[], sort: SortKey): ShelfEntry[] {
+  return [...entries].sort((a, b) => {
+    if (sort === 'title') return a.book.title.localeCompare(b.book.title)
+    if (sort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+}
+
 export function Shelf() {
   const { session } = useAuth()
   const [entries, setEntries] = useState<ShelfEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [sort, setSort] = useState<SortKey>('newest')
 
   useEffect(() => {
     if (!session) return
@@ -69,16 +86,48 @@ export function Shelf() {
     }
   }
 
+  const [query, setQuery] = useState('')
+
   const total = entries.length
+  const filtered = entries.filter(e =>
+    !query.trim() ||
+    e.book.title.toLowerCase().includes(query.toLowerCase()) ||
+    e.book.author.name.toLowerCase().includes(query.toLowerCase())
+  )
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-800">My Shelf</h1>
-        {!loading && (
-          <p className="text-sm text-gray-500 mt-1">
-            {total === 0 ? 'Your shelf is empty.' : `${total} book${total !== 1 ? 's' : ''} total`}
-          </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">My Shelf</h1>
+          {!loading && (
+            <p className="text-sm text-gray-500 mt-1">
+              {total === 0 ? 'Your shelf is empty.' : `${total} book${total !== 1 ? 's' : ''} total`}
+            </p>
+          )}
+        </div>
+        {!loading && total > 0 && (
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Filter by title or author…"
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 w-52"
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Sort:</span>
+              <select
+                value={sort}
+                onChange={e => setSort(e.target.value as SortKey)}
+                className="text-xs border border-gray-300 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              >
+                {SORT_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         )}
       </div>
 
@@ -108,9 +157,11 @@ export function Shelf() {
             Browse books to get started →
           </Link>
         </div>
+      ) : filtered.length === 0 ? (
+        <p className="text-sm text-gray-400">No books match your filter.</p>
       ) : (
         SECTIONS.map(({ status, label, icon }) => {
-          const section = entries.filter(e => e.status === status)
+          const section = sortEntries(filtered.filter(e => e.status === status), sort)
           if (section.length === 0) return null
           return (
             <div key={status}>

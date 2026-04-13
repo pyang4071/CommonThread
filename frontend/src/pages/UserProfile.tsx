@@ -111,9 +111,11 @@ export function UserProfile() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Link to="/friends" className="text-sm text-indigo-600 hover:underline inline-block">
-        ← Back to Friends
-      </Link>
+      <nav className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link to="/friends" className="text-indigo-600 hover:underline">Friends</Link>
+        <span>›</span>
+        <span className="text-gray-600 truncate">{profile.name ?? profile.email}</span>
+      </nav>
 
       {/* Header */}
       <div className="bg-white border border-gray-200 rounded-xl p-6 flex items-center justify-between gap-4">

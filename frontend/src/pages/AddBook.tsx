@@ -53,13 +53,17 @@ export function AddBook() {
   const [allTropes, setAllTropes] = useState<Trope[]>([])
   const [tropeQuery, setTropeQuery] = useState('')
   const [showTropes, setShowTropes] = useState(false)
+  const [tropeHighlight, setTropeHighlight] = useState(-1)
   const tropeRef = useRef<HTMLDivElement>(null)
+  const tropeListRef = useRef<HTMLUListElement>(null)
 
   // Archetype search
   const [allArchetypes, setAllArchetypes] = useState<Archetype[]>([])
   const [archetypeQuery, setArchetypeQuery] = useState('')
   const [showArchetypes, setShowArchetypes] = useState(false)
+  const [archetypeHighlight, setArchetypeHighlight] = useState(-1)
   const archetypeRef = useRef<HTMLDivElement>(null)
+  const archetypeListRef = useRef<HTMLUListElement>(null)
 
   // Genres
   const [allGenres, setAllGenres] = useState<Genre[]>([])
@@ -120,6 +124,22 @@ export function AddBook() {
   const filteredArchetypes = archetypeQuery.trim()
     ? allArchetypes.filter(a => !selectedArchetypeIds.has(a.archetype_id) && a.name.toLowerCase().includes(archetypeQuery.toLowerCase()))
     : []
+
+  const handleTropeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!filteredTropes.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setTropeHighlight(i => Math.min(i + 1, filteredTropes.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setTropeHighlight(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter' && tropeHighlight >= 0) { e.preventDefault(); addTrope(filteredTropes[tropeHighlight]); setTropeHighlight(-1) }
+    else if (e.key === 'Escape') { setShowTropes(false); setTropeHighlight(-1) }
+  }
+
+  const handleArchetypeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!filteredArchetypes.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setArchetypeHighlight(i => Math.min(i + 1, filteredArchetypes.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setArchetypeHighlight(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter' && archetypeHighlight >= 0) { e.preventDefault(); addArchetype(filteredArchetypes[archetypeHighlight]); setArchetypeHighlight(-1) }
+    else if (e.key === 'Escape') { setShowArchetypes(false); setArchetypeHighlight(-1) }
+  }
 
   // Trope actions
   const addTrope = (trope: Trope) => {
@@ -446,18 +466,21 @@ export function AddBook() {
 
           <div ref={tropeRef} className="relative">
             <input value={tropeQuery}
-              onChange={e => { setTropeQuery(e.target.value); setShowTropes(true) }}
+              onChange={e => { setTropeQuery(e.target.value); setShowTropes(true); setTropeHighlight(-1) }}
               onFocus={() => setShowTropes(true)}
+              onKeyDown={handleTropeKeyDown}
               disabled={selectedTropes.length >= MAX_TROPES}
               placeholder={selectedTropes.length >= MAX_TROPES ? 'Maximum tropes reached' : 'Search tropes…'}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
             />
             {showTropes && filteredTropes.length > 0 && (
-              <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
-                {filteredTropes.map(trope => (
+              <ul ref={tropeListRef} className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
+                {filteredTropes.map((trope, idx) => (
                   <li key={trope.trope_id}>
-                    <button type="button" onClick={() => addTrope(trope)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-sm">
+                    <button type="button"
+                      onMouseEnter={() => setTropeHighlight(idx)}
+                      onClick={() => { addTrope(trope); setTropeHighlight(-1) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm ${idx === tropeHighlight ? 'bg-indigo-50' : 'hover:bg-indigo-50'}`}>
                       <span className="font-medium text-gray-800">{trope.name}</span>
                       <span className="ml-2 text-xs text-gray-400">{trope.category}</span>
                     </button>
@@ -522,18 +545,21 @@ export function AddBook() {
 
           <div ref={archetypeRef} className="relative">
             <input value={archetypeQuery}
-              onChange={e => { setArchetypeQuery(e.target.value); setShowArchetypes(true) }}
+              onChange={e => { setArchetypeQuery(e.target.value); setShowArchetypes(true); setArchetypeHighlight(-1) }}
               onFocus={() => setShowArchetypes(true)}
+              onKeyDown={handleArchetypeKeyDown}
               disabled={selectedArchetypes.length >= MAX_ARCHETYPES}
               placeholder={selectedArchetypes.length >= MAX_ARCHETYPES ? 'Maximum archetypes reached' : 'Search archetypes…'}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
             />
             {showArchetypes && filteredArchetypes.length > 0 && (
-              <ul className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
-                {filteredArchetypes.map(archetype => (
+              <ul ref={archetypeListRef} className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">
+                {filteredArchetypes.map((archetype, idx) => (
                   <li key={archetype.archetype_id}>
-                    <button type="button" onClick={() => addArchetype(archetype)}
-                      className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 text-sm">
+                    <button type="button"
+                      onMouseEnter={() => setArchetypeHighlight(idx)}
+                      onClick={() => { addArchetype(archetype); setArchetypeHighlight(-1) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm ${idx === archetypeHighlight ? 'bg-indigo-50' : 'hover:bg-indigo-50'}`}>
                       <span className="font-medium text-gray-800">{archetype.name}</span>
                       {archetype.description && (
                         <span className="ml-2 text-xs text-gray-400 truncate">{archetype.description}</span>

@@ -26,12 +26,23 @@ function BlocklistPicker<T>({
   onRemove: (item: T) => void
 }) {
   const [query, setQuery] = useState('')
+  const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const ref = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLUListElement>(null)
   const blockedKeys = new Set(blocked.map(getKey))
 
   const filtered = query.trim()
     ? options.filter(o => !blockedKeys.has(getKey(o)) && getName(o).toLowerCase().includes(query.toLowerCase()))
     : []
+
+  useEffect(() => { setHighlightedIndex(-1) }, [query])
+
+  useEffect(() => {
+    if (highlightedIndex >= 0 && listRef.current) {
+      const el = listRef.current.children[highlightedIndex] as HTMLElement | undefined
+      el?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -40,6 +51,14 @@ function BlocklistPicker<T>({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!filtered.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightedIndex(i => Math.min(i + 1, filtered.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightedIndex(i => Math.max(i - 1, 0)) }
+    else if (e.key === 'Enter' && highlightedIndex >= 0) { e.preventDefault(); onAdd(filtered[highlightedIndex]); setQuery('') }
+    else if (e.key === 'Escape') { setQuery('') }
+  }
 
   return (
     <div>
@@ -65,17 +84,19 @@ function BlocklistPicker<T>({
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
         />
         {filtered.length > 0 && (
-          <ul className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-44 overflow-y-auto">
-            {filtered.map(item => (
+          <ul ref={listRef} className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-44 overflow-y-auto">
+            {filtered.map((item, idx) => (
               <li key={getKey(item)}>
                 <button
                   type="button"
+                  onMouseEnter={() => setHighlightedIndex(idx)}
                   onClick={() => { onAdd(item); setQuery('') }}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 text-gray-800"
+                  className={`w-full text-left px-3 py-2 text-sm text-gray-800 ${idx === highlightedIndex ? 'bg-red-50' : 'hover:bg-red-50'}`}
                 >
                   {getName(item)}
                 </button>

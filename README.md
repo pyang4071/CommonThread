@@ -26,7 +26,7 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed, public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Functional — all major pages implemented |
+| Frontend | Functional — all major pages implemented; keyboard nav, card grid, sort controls added |
 | Admin dashboard | Working — embed-all, fetch-covers, status |
 | Auth | Working via Supabase JWT |
 | Testing | Minimal — pytest scaffolded, not comprehensive |

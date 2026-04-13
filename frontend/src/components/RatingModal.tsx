@@ -87,14 +87,20 @@ export function RatingModal({ book, currentRating, currentReview, token, onClose
 
         {/* Review */}
         <div>
-          <label className="block text-xs text-gray-500 mb-1.5">
-            Review <span className="text-gray-400">(optional)</span>
-          </label>
+          <div className="flex items-baseline justify-between mb-1.5">
+            <label className="text-xs text-gray-500">
+              Review <span className="text-gray-400">(optional)</span>
+            </label>
+            <span className={`text-xs ${review.length > 900 ? 'text-amber-500' : 'text-gray-400'}`}>
+              {review.length} / 1000
+            </span>
+          </div>
           <textarea
             value={review}
             onChange={e => setReview(e.target.value)}
             placeholder="What did you think?"
             rows={3}
+            maxLength={1000}
             className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
           />
         </div>
