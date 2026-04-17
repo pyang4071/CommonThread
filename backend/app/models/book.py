@@ -35,6 +35,7 @@ class Book(Base):
     cover_url: Mapped[str | None] = mapped_column(nullable=True)
     genome_embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
     description_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
+    review_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     embedding_status: Mapped[str] = mapped_column(default="pending", server_default="pending")
     series_id: Mapped[int | None] = mapped_column(
         ForeignKey("series.series_id", ondelete="SET NULL"), nullable=True

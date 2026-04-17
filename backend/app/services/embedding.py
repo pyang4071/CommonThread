@@ -197,6 +197,63 @@ async def embed_query(text: str) -> tuple[list[float], list[float]]:
     return genome_vec, desc_vec
 
 
+async def embed_description_only(book_id: int, db: AsyncSession) -> Book | None:
+    """
+    Embed only the description stream for a book.
+
+    Fires at book creation regardless of trope count — no genome gate.
+    Does not touch genome_embedding or embedding_status.
+    Returns None (no-op) if the book has no description.
+    """
+    result = await db.execute(select(Book).where(Book.book_id == book_id))
+    book = result.scalar_one_or_none()
+    if book is None or not book.description:
+        return None
+
+    book.description_embedding = await _run(book.description, _get_description_model)
+    await db.commit()
+    await db.refresh(book)
+    return book
+
+
+async def embed_reviews_for_book(book_id: int, db: AsyncSession) -> Book | None:
+    """
+    Aggregate all review texts for a book and embed them as a single vector.
+
+    Concatenates non-empty review_text values with ' | ' as a separator,
+    then embeds with the description model (same model and dimension as
+    description_embedding — no additional model download needed).
+
+    Writes to books.review_embedding. Returns None if no reviews with text exist.
+    Re-called on every review upsert so the aggregate stays current.
+    """
+    from app.models.book_rating import BookRating
+
+    reviews_q = await db.execute(
+        select(BookRating.review_text)
+        .where(
+            BookRating.book_id == book_id,
+            BookRating.review_text.is_not(None),
+            BookRating.review_text != "",
+        )
+    )
+    texts = [row[0] for row in reviews_q.all()]
+    if not texts:
+        return None
+
+    combined = " | ".join(texts)
+
+    result = await db.execute(select(Book).where(Book.book_id == book_id))
+    book = result.scalar_one_or_none()
+    if book is None:
+        return None
+
+    book.review_embedding = await _run(combined, _get_description_model)
+    await db.commit()
+    await db.refresh(book)
+    return book
+
+
 async def embed_book(book_id: int, db: AsyncSession) -> Book:
     """
     Full pipeline: load book → embed both streams → persist to DB.

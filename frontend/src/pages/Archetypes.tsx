@@ -7,9 +7,10 @@ import { useAuth } from '../contexts/AuthContext'
 const EMPTY = { name: '', description: '' }
 
 export function Archetypes() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, session } = useAuth()
   const [archetypes, setArchetypes] = useState<Archetype[]>([])
   const [form, setForm] = useState(EMPTY)
+  useEffect(() => { document.title = 'Archetypes — CommonThread' }, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
@@ -24,13 +25,13 @@ export function Archetypes() {
     await api.archetypes.create({
       name: form.name,
       description: form.description || null,
-    })
+    }, session!.access_token)
     setForm(EMPTY)
     load()
   }
 
   const remove = async (arch: Archetype) => {
-    await api.archetypes.delete(arch.archetype_id)
+    await api.archetypes.delete(arch.archetype_id, session!.access_token)
     load()
   }
 

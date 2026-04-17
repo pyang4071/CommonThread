@@ -16,6 +16,7 @@ class BookTrope(Base):
     book_id: Mapped[int] = mapped_column(ForeignKey("books.book_id"), primary_key=True)
     trope_id: Mapped[int] = mapped_column(ForeignKey("tropes.trope_id"), primary_key=True)
     weight: Mapped[float]
+    is_crowd_promoted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
     book: Mapped["Book"] = relationship(back_populates="book_tropes")
     trope: Mapped["Trope"] = relationship(back_populates="book_tropes")

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -22,6 +22,7 @@ import { Profile } from './pages/Profile'
 import { Shelf } from './pages/Shelf'
 import { TropeDetail } from './pages/TropeDetail'
 import { NotFound } from './pages/NotFound'
+import { Unauthorized } from './pages/Unauthorized'
 import { Login } from './pages/auth/Login'
 import { SignUp } from './pages/auth/SignUp'
 import { ForgotPassword } from './pages/auth/ForgotPassword'
@@ -140,7 +141,7 @@ function Header() {
   )
 }
 
-function Layout({ children }: { children: React.ReactNode }) {
+function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -149,43 +150,54 @@ function Layout({ children }: { children: React.ReactNode }) {
   )
 }
 
-function App() {
+/** Root layout: provides context to all routes via Outlet. */
+function RootLayout() {
   return (
-    <BrowserRouter>
-      <ToastProvider>
+    <ToastProvider>
       <AuthProvider>
-        <Routes>
-          {/* Auth pages — full screen, no app header */}
-          <Route path="/auth/login" element={<Login />} />
-          <Route path="/auth/signup" element={<SignUp />} />
-          <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-          <Route path="/auth/reset-password" element={<ResetPassword />} />
-
-          {/* App pages — with header */}
-          <Route path="/" element={<Layout><Home /></Layout>} />
-          <Route path="/books" element={<Layout><ProtectedRoute><Books /></ProtectedRoute></Layout>} />
-          <Route path="/books/new" element={<Layout><ProtectedRoute><AddBook /></ProtectedRoute></Layout>} />
-          <Route path="/books/:id" element={<Layout><ProtectedRoute><BookDetail /></ProtectedRoute></Layout>} />
-          <Route path="/books/:id/edit" element={<Layout><ProtectedRoute adminOnly><EditBook /></ProtectedRoute></Layout>} />
-          <Route path="/tropes" element={<Layout><ProtectedRoute><Tropes /></ProtectedRoute></Layout>} />
-          <Route path="/tropes/:id" element={<Layout><TropeDetail /></Layout>} />
-          <Route path="/archetypes" element={<Layout><ProtectedRoute><Archetypes /></ProtectedRoute></Layout>} />
-          <Route path="/archetypes/:id" element={<Layout><ArchetypeDetail /></Layout>} />
-          <Route path="/genres" element={<Layout><ProtectedRoute adminOnly><Genres /></ProtectedRoute></Layout>} />
-          <Route path="/book-types" element={<Layout><ProtectedRoute adminOnly><BookTypes /></ProtectedRoute></Layout>} />
-          <Route path="/tones" element={<Layout><ProtectedRoute adminOnly><Tones /></ProtectedRoute></Layout>} />
-          <Route path="/admin" element={<Layout><ProtectedRoute><Admin /></ProtectedRoute></Layout>} />
-          <Route path="/profile" element={<Layout><ProtectedRoute><Profile /></ProtectedRoute></Layout>} />
-          <Route path="/shelf" element={<Layout><ProtectedRoute><Shelf /></ProtectedRoute></Layout>} />
-          <Route path="/my-tags" element={<Layout><ProtectedRoute><MyTags /></ProtectedRoute></Layout>} />
-          <Route path="/friends" element={<Layout><ProtectedRoute><Friends /></ProtectedRoute></Layout>} />
-          <Route path="/users/:userId" element={<Layout><ProtectedRoute><UserProfile /></ProtectedRoute></Layout>} />
-          <Route path="*" element={<Layout><NotFound /></Layout>} />
-        </Routes>
+        <Outlet />
       </AuthProvider>
-      </ToastProvider>
-    </BrowserRouter>
+    </ToastProvider>
   )
+}
+
+const router = createBrowserRouter([
+  {
+    element: <RootLayout />,
+    children: [
+      // Auth pages — full screen, no app header
+      { path: '/auth/login',           element: <Login /> },
+      { path: '/auth/signup',          element: <SignUp /> },
+      { path: '/auth/forgot-password', element: <ForgotPassword /> },
+      { path: '/auth/reset-password',  element: <ResetPassword /> },
+
+      // App pages — with header/layout
+      { path: '/',              element: <AppLayout><Home /></AppLayout> },
+      { path: '/books',         element: <AppLayout><ProtectedRoute><Books /></ProtectedRoute></AppLayout> },
+      { path: '/books/new',     element: <AppLayout><ProtectedRoute><AddBook /></ProtectedRoute></AppLayout> },
+      { path: '/books/:id',     element: <AppLayout><ProtectedRoute><BookDetail /></ProtectedRoute></AppLayout> },
+      { path: '/books/:id/edit',element: <AppLayout><ProtectedRoute adminOnly><EditBook /></ProtectedRoute></AppLayout> },
+      { path: '/tropes',        element: <AppLayout><ProtectedRoute><Tropes /></ProtectedRoute></AppLayout> },
+      { path: '/tropes/:id',    element: <AppLayout><TropeDetail /></AppLayout> },
+      { path: '/archetypes',    element: <AppLayout><ProtectedRoute><Archetypes /></ProtectedRoute></AppLayout> },
+      { path: '/archetypes/:id',element: <AppLayout><ArchetypeDetail /></AppLayout> },
+      { path: '/genres',        element: <AppLayout><ProtectedRoute adminOnly><Genres /></ProtectedRoute></AppLayout> },
+      { path: '/book-types',    element: <AppLayout><ProtectedRoute adminOnly><BookTypes /></ProtectedRoute></AppLayout> },
+      { path: '/tones',         element: <AppLayout><ProtectedRoute adminOnly><Tones /></ProtectedRoute></AppLayout> },
+      { path: '/admin',         element: <AppLayout><ProtectedRoute adminOnly><Admin /></ProtectedRoute></AppLayout> },
+      { path: '/profile',       element: <AppLayout><ProtectedRoute><Profile /></ProtectedRoute></AppLayout> },
+      { path: '/shelf',         element: <AppLayout><ProtectedRoute><Shelf /></ProtectedRoute></AppLayout> },
+      { path: '/my-tags',       element: <AppLayout><ProtectedRoute><MyTags /></ProtectedRoute></AppLayout> },
+      { path: '/friends',       element: <AppLayout><ProtectedRoute><Friends /></ProtectedRoute></AppLayout> },
+      { path: '/users/:userId', element: <AppLayout><ProtectedRoute><UserProfile /></ProtectedRoute></AppLayout> },
+      { path: '/unauthorized',  element: <AppLayout><Unauthorized /></AppLayout> },
+      { path: '*',              element: <AppLayout><NotFound /></AppLayout> },
+    ],
+  },
+])
+
+function App() {
+  return <RouterProvider router={router} />
 }
 
 export default App

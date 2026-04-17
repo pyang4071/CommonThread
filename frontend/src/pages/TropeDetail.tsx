@@ -32,6 +32,10 @@ export function TropeDetail() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    document.title = trope ? `${trope.name} · Tropes — CommonThread` : 'Tropes — CommonThread'
+  }, [trope])
+
+  useEffect(() => {
     if (!id) return
     const tropeId = Number(id)
     Promise.all([

@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "sb-uwgmqjimtnygzuauygby-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6ImE2MzhkNmNkLTFmZjUtNDE4MC05YTVhLTgzZTYzYjY5ZDMzNSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3V3Z21xamltdG55Z3p1YXV5Z2J5LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiJiODI0MjJmOS1jODZiLTRjM2QtOTJkYy0yYTBjY2M5ZjVmNjIiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc2MTQzOTAzLCJpYXQiOjE3NzYxNDAzMDMsImVtYWlsIjoiOTN4c3RyYXdiZXJyeUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoiOTN4c3RyYXdiZXJyeUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6IlN0cmF3YmVycnkiLCJwaG9uZV92ZXJpZmllZCI6ZmFsc2UsInN1YiI6ImI4MjQyMmY5LWM4NmItNGMzZC05MmRjLTJhMGNjYzlmNWY2MiJ9LCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImFhbCI6ImFhbDEiLCJhbXIiOlt7Im1ldGhvZCI6Im90cCIsInRpbWVzdGFtcCI6MTc3NjE0MDMwM31dLCJzZXNzaW9uX2lkIjoiNWI0NmU1N2QtNTAyZC00ZThiLWIyN2EtOTExZWFmNWRlYWU2IiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.3070OAr2wY94dA6xQd1vMePfdzk15Mm9W8VmrrDCZpUUN9PSk6nQlY2TX7UlQ_Af-q-IFLYVSBvERTl-2hpIdQ\",\"expires_in\":3600,\"expires_at\":1776143903,\"refresh_token\":\"qjywgi5zcvw7\",\"token_type\":\"bearer\",\"user\":{\"id\":\"b82422f9-c86b-4c3d-92dc-2a0ccc9f5f62\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"93xstrawberry@gmail.com\",\"email_confirmed_at\":\"2026-04-02T13:32:27.636823Z\",\"phone\":\"\",\"confirmation_sent_at\":\"2026-04-02T13:32:15.169005Z\",\"confirmed_at\":\"2026-04-02T13:32:27.636823Z\",\"recovery_sent_at\":\"2026-04-14T04:18:22.68332Z\",\"last_sign_in_at\":\"2026-04-14T04:18:23.051923Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email\":\"93xstrawberry@gmail.com\",\"email_verified\":true,\"name\":\"Strawberry\",\"phone_verified\":false,\"sub\":\"b82422f9-c86b-4c3d-92dc-2a0ccc9f5f62\"},\"identities\":[{\"identity_id\":\"ccf99db2-92fc-4146-bb9a-8d050a30ae8d\",\"id\":\"b82422f9-c86b-4c3d-92dc-2a0ccc9f5f62\",\"user_id\":\"b82422f9-c86b-4c3d-92dc-2a0ccc9f5f62\",\"identity_data\":{\"email\":\"93xstrawberry@gmail.com\",\"email_verified\":true,\"name\":\"Strawberry\",\"phone_verified\":false,\"sub\":\"b82422f9-c86b-4c3d-92dc-2a0ccc9f5f62\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-04-02T13:32:15.162944Z\",\"created_at\":\"2026-04-02T13:32:15.163003Z\",\"updated_at\":\"2026-04-02T13:32:15.163003Z\",\"email\":\"93xstrawberry@gmail.com\"}],\"created_at\":\"2026-04-02T13:32:15.135876Z\",\"updated_at\":\"2026-04-14T04:18:23.055658Z\",\"is_anonymous\":false}}"
+        }
+      ]
+    }
+  ]
+}

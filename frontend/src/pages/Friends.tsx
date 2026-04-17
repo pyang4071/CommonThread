@@ -185,12 +185,19 @@ const STATUS_LABELS: Record<string, string> = {
   review: 'reviewed',
 }
 
+function relativeTime(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 function FeedItem({ entry }: { entry: FeedEntry }) {
   const label = STATUS_LABELS[entry.event_type] ?? entry.event_type
-  const time = new Date(entry.occurred_at).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
+  const time = relativeTime(new Date(entry.occurred_at))
   return (
     <div className="flex gap-3 py-3">
       {entry.book_cover_url ? (
@@ -233,9 +240,11 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
 
 export function Friends() {
   const { session } = useAuth()
+  const toast = useToast()
   const [following, setFollowing] = useState<UserPublicProfile[]>([])
   const [feed, setFeed] = useState<FeedEntry[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
+  useEffect(() => { document.title = 'Friends — CommonThread' }, [])
 
   const followingIds = new Set(following.map(u => u.user_id))
 
@@ -243,10 +252,15 @@ export function Friends() {
     if (!session) return
     const token = session.access_token
 
-    api.users.following(token).then(setFollowing).catch(() => {})
+    api.users.following(token)
+      .then(setFollowing)
+      .catch(() => toast.error('Failed to load following list.'))
 
     setFeedLoading(true)
-    api.users.feed(token).then(setFeed).catch(() => {}).finally(() => setFeedLoading(false))
+    api.users.feed(token)
+      .then(setFeed)
+      .catch(() => toast.error('Failed to load activity feed.'))
+      .finally(() => setFeedLoading(false))
   }, [session])
 
   if (!session) return null

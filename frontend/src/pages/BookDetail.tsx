@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Book, BookDetail as BookDetailType, Review, SimilarBook, Trope, UserTags } from '../api/client'
@@ -50,7 +50,6 @@ export function BookDetail() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const backTo: string = state?.from ?? '/books'
-  const backLabel = backTo === '/shelf' ? '← Back to Shelf' : '← Back to Books'
   const { session, isAdmin } = useAuth()
   const toast = useToast()
   const [book, setBook] = useState<BookDetailType | null>(null)
@@ -66,6 +65,7 @@ export function BookDetail() {
   const [dislikeLoading, setDislikeLoading] = useState(false)
   const [dislikeConfirmOpen, setDislikeConfirmOpen] = useState(false)
   const [reviews, setReviews] = useState<Review[]>([])
+  const [reviewSort, setReviewSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest')
   const [seriesBooks, setSeriesBooks] = useState<Book[]>([])
   const [myTags, setMyTags] = useState<UserTags>({ tropes: [], archetypes: [] })
   const [allTropes, setAllTropes] = useState<Trope[]>([])
@@ -117,6 +117,11 @@ export function BookDetail() {
     api.tropes.list().then(setAllTropes).catch(() => {})
     api.archetypes.list().then(setAllArchetypes).catch(() => {})
   }, [id, session])
+
+  useEffect(() => {
+    if (book) document.title = `${book.title} — CommonThread`
+    return () => { document.title = 'CommonThread' }
+  }, [book])
 
   const [showBackToTop, setShowBackToTop] = useState(false)
   useEffect(() => {
@@ -241,16 +246,17 @@ export function BookDetail() {
 
   const toggleDislike = async () => {
     if (!session || !id) return
+    const prev = disliked
+    setDisliked(!prev)
     setDislikeLoading(true)
     try {
-      if (disliked) {
+      if (prev) {
         await api.dislikes.remove(Number(id), session.access_token)
-        setDisliked(false)
       } else {
         await api.dislikes.set(Number(id), session.access_token)
-        setDisliked(true)
       }
     } catch {
+      setDisliked(prev)
       toast.error('Failed to update dislike.')
     } finally {
       setDislikeLoading(false)
@@ -301,6 +307,13 @@ export function BookDetail() {
   const sortedTropes = [...book.book_tropes].sort((a, b) => b.weight - a.weight)
   const sortedDNA = [...book.character_dna].sort((a, b) => b.importance - a.importance)
 
+  const sortedReviews = [...reviews].sort((a, b) => {
+    if (reviewSort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    if (reviewSort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    if (reviewSort === 'highest') return b.rating - a.rating
+    return a.rating - b.rating
+  })
+
   return (
     <div className="space-y-8">
       {/* Breadcrumb + Edit */}
@@ -344,7 +357,12 @@ export function BookDetail() {
             <span>Published {new Date(book.publication_date).getFullYear()}</span>
           )}
           {book.isbn && <span>ISBN {book.isbn}</span>}
-          {book.embedding_status === 'pending' && (
+          {book.embedding_status !== 'done' && book.book_tropes.length < 3 && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+              {book.book_tropes.length}/3 tropes — needs {3 - book.book_tropes.length} more for recommendations
+            </span>
+          )}
+          {book.embedding_status === 'pending' && book.book_tropes.length >= 3 && (
             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
               ⏳ Indexing in progress
             </span>
@@ -682,6 +700,9 @@ export function BookDetail() {
                 {sb.series_position != null && (
                   <p className="mt-1 text-xs font-semibold text-indigo-600">#{sb.series_position}</p>
                 )}
+                {sb.book_id === book.book_id && (
+                  <p className="text-xs text-gray-400 italic mt-0.5">You are here</p>
+                )}
                 <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug mt-0.5">{sb.title}</p>
               </Link>
             ))}
@@ -692,12 +713,26 @@ export function BookDetail() {
       {/* Reviews */}
       {reviews.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Reviews
-            <span className="ml-2 text-sm font-normal text-gray-400">({reviews.length})</span>
-          </h2>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Reviews
+              <span className="ml-2 text-sm font-normal text-gray-400">({reviews.length})</span>
+            </h2>
+            {reviews.length >= 2 && (
+              <select
+                value={reviewSort}
+                onChange={e => setReviewSort(e.target.value as typeof reviewSort)}
+                className="ml-auto text-xs border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white text-gray-600"
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="highest">Highest rating</option>
+                <option value="lowest">Lowest rating</option>
+              </select>
+            )}
+          </div>
           <div className="space-y-4">
-            {reviews.map(r => (
+            {sortedReviews.map(r => (
               <div key={r.rating_id} className="bg-white border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex gap-0.5">
@@ -724,12 +759,12 @@ export function BookDetail() {
           <p className="text-xs text-gray-400 mb-4">Matched by tropes, archetypes &amp; genres</p>
           {similar.length === 0 ? (
             <div className="bg-white border border-dashed border-gray-200 rounded-lg p-6 text-center space-y-1">
-              <p className="text-sm text-gray-400">No similar books found yet — this book may not be embedded.</p>
+              <p className="text-sm text-gray-400">No similar books found yet — recommendations will appear once this book has been indexed.</p>
               {isAdmin && (
                 <p className="text-xs text-gray-400">
                   Visit the{' '}
                   <Link to="/admin" className="text-indigo-500 hover:underline">Admin panel</Link>
-                  {' '}to embed pending books.
+                  {' '}to index pending books.
                 </p>
               )}
             </div>
@@ -755,9 +790,17 @@ export function BookDetail() {
                           <p className="font-medium text-gray-800 text-sm truncate">{b.title}</p>
                           <p className="text-xs text-gray-500 mt-0.5">{b.author.name}</p>
                         </div>
-                        <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                          {Math.round(score * 100)}%
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                            {Math.round(score * 100)}%
+                          </span>
+                          {explanation?.source === 'description' && (
+                            <span className="text-xs text-gray-400">matched by description</span>
+                          )}
+                          {explanation?.source === 'review' && (
+                            <span className="text-xs text-gray-400">matched by reviews</span>
+                          )}
+                        </div>
                       </div>
                       {sharedTags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">

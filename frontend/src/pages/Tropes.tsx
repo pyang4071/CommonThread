@@ -18,6 +18,7 @@ export function Tropes() {
   const { isAdmin } = useAuth()
   const [tropes, setTropes] = useState<Trope[]>([])
   const [form, setForm] = useState(EMPTY)
+  useEffect(() => { document.title = 'Tropes — CommonThread' }, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')

@@ -2,7 +2,16 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { BookTagsEntry } from '../api/client'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
+
+type TagToRemove = {
+  type: 'trope' | 'archetype'
+  bookId: number
+  id: number
+  name: string
+}
 
 function WeightBar({ value }: { value: number }) {
   const pct = Math.round(value * 100)
@@ -17,25 +26,14 @@ function WeightBar({ value }: { value: number }) {
   )
 }
 
-function TagCard({ entry, onRemoveTrope, onRemoveArchetype, token }: {
+function TagCard({ entry, onRequestRemoveTrope, onRequestRemoveArchetype }: {
   entry: BookTagsEntry
-  token: string
-  onRemoveTrope: (bookId: number, tropeId: number) => void
-  onRemoveArchetype: (bookId: number, archetypeId: number) => void
+  onRequestRemoveTrope: (bookId: number, tropeId: number, name: string) => void
+  onRequestRemoveArchetype: (bookId: number, archetypeId: number, name: string) => void
 }) {
   const { book, tropes, archetypes } = entry
   const sorted_tropes = [...tropes].sort((a, b) => b.weight - a.weight)
   const sorted_archetypes = [...archetypes].sort((a, b) => b.importance - a.importance)
-
-  const handleRemoveTrope = async (tropeId: number) => {
-    await api.myTags.removeTrope(book.book_id, tropeId, token)
-    onRemoveTrope(book.book_id, tropeId)
-  }
-
-  const handleRemoveArchetype = async (archetypeId: number) => {
-    await api.myTags.removeArchetype(book.book_id, archetypeId, token)
-    onRemoveArchetype(book.book_id, archetypeId)
-  }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -78,7 +76,7 @@ function TagCard({ entry, onRemoveTrope, onRemoveArchetype, token }: {
               trope
             </span>
             <button
-              onClick={() => handleRemoveTrope(trope.trope_id)}
+              onClick={() => onRequestRemoveTrope(book.book_id, trope.trope_id, trope.name)}
               className="text-gray-300 hover:text-red-500 transition-colors text-xs shrink-0"
               title="Remove tag"
             >
@@ -104,7 +102,7 @@ function TagCard({ entry, onRemoveTrope, onRemoveArchetype, token }: {
               archetype
             </span>
             <button
-              onClick={() => handleRemoveArchetype(archetype.archetype_id)}
+              onClick={() => onRequestRemoveArchetype(book.book_id, archetype.archetype_id, archetype.name)}
               className="text-gray-300 hover:text-red-500 transition-colors text-xs shrink-0"
               title="Remove tag"
             >
@@ -119,40 +117,77 @@ function TagCard({ entry, onRemoveTrope, onRemoveArchetype, token }: {
 
 export function MyTags() {
   const { session } = useAuth()
+  const toast = useToast()
   const [entries, setEntries] = useState<BookTagsEntry[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterQuery, setFilterQuery] = useState('')
+  const [tagToRemove, setTagToRemove] = useState<TagToRemove | null>(null)
+
+  useEffect(() => {
+    document.title = 'My Tags — CommonThread'
+  }, [])
 
   useEffect(() => {
     if (!session) return
     api.users.myTags(session.access_token)
       .then(setEntries)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load your tags.'))
       .finally(() => setLoading(false))
   }, [session])
 
-  const handleRemoveTrope = (bookId: number, tropeId: number) => {
-    setEntries(prev =>
-      prev
-        .map(e =>
-          e.book.book_id === bookId
+  const doRemoveTrope = async (bookId: number, tropeId: number) => {
+    if (!session) return
+    try {
+      await api.myTags.removeTrope(bookId, tropeId, session.access_token)
+      setEntries(prev =>
+        prev
+          .map(e => e.book.book_id === bookId
             ? { ...e, tropes: e.tropes.filter(t => t.trope.trope_id !== tropeId) }
             : e
-        )
-        .filter(e => e.tropes.length > 0 || e.archetypes.length > 0)
-    )
+          )
+          .filter(e => e.tropes.length > 0 || e.archetypes.length > 0)
+      )
+    } catch {
+      toast.error('Failed to remove tag.')
+    }
   }
 
-  const handleRemoveArchetype = (bookId: number, archetypeId: number) => {
-    setEntries(prev =>
-      prev
-        .map(e =>
-          e.book.book_id === bookId
+  const doRemoveArchetype = async (bookId: number, archetypeId: number) => {
+    if (!session) return
+    try {
+      await api.myTags.removeArchetype(bookId, archetypeId, session.access_token)
+      setEntries(prev =>
+        prev
+          .map(e => e.book.book_id === bookId
             ? { ...e, archetypes: e.archetypes.filter(a => a.archetype.archetype_id !== archetypeId) }
             : e
-        )
-        .filter(e => e.tropes.length > 0 || e.archetypes.length > 0)
-    )
+          )
+          .filter(e => e.tropes.length > 0 || e.archetypes.length > 0)
+      )
+    } catch {
+      toast.error('Failed to remove tag.')
+    }
   }
+
+  const handleConfirmRemove = async () => {
+    if (!tagToRemove) return
+    const { type, bookId, id } = tagToRemove
+    setTagToRemove(null)
+    if (type === 'trope') await doRemoveTrope(bookId, id)
+    else await doRemoveArchetype(bookId, id)
+  }
+
+  const filteredEntries = filterQuery.trim()
+    ? entries.filter(e => {
+        const q = filterQuery.toLowerCase()
+        return (
+          e.book.title.toLowerCase().includes(q) ||
+          e.book.author.name.toLowerCase().includes(q) ||
+          e.tropes.some(t => t.trope.name.toLowerCase().includes(q)) ||
+          e.archetypes.some(a => a.archetype.name.toLowerCase().includes(q))
+        )
+      })
+    : entries
 
   const totalTags = entries.reduce((sum, e) => sum + e.tropes.length + e.archetypes.length, 0)
 
@@ -171,6 +206,31 @@ export function MyTags() {
           Your tags are combined with system tropes to build your taste profile — they're how you tell the recommendation engine what actually resonated with you in each book.
         </p>
       </div>
+
+      {/* T-31: Search/filter */}
+      {!loading && entries.length > 0 && (
+        <div className="flex items-center gap-2">
+          <input
+            value={filterQuery}
+            onChange={e => setFilterQuery(e.target.value)}
+            placeholder="Filter by book, author, or tag name…"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          />
+          {filterQuery && (
+            <button
+              onClick={() => setFilterQuery('')}
+              className="text-xs text-gray-400 hover:text-gray-600 px-2 py-2"
+            >
+              Clear
+            </button>
+          )}
+          {filterQuery.trim() && (
+            <span className="text-xs text-gray-400 shrink-0">
+              {filteredEntries.length} book{filteredEntries.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -201,18 +261,33 @@ export function MyTags() {
             Browse books →
           </Link>
         </div>
+      ) : filteredEntries.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">No tags match "{filterQuery}".</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {entries.map(entry => (
+          {filteredEntries.map(entry => (
             <TagCard
               key={entry.book.book_id}
               entry={entry}
-              token={session!.access_token}
-              onRemoveTrope={handleRemoveTrope}
-              onRemoveArchetype={handleRemoveArchetype}
+              onRequestRemoveTrope={(bookId, tropeId, name) =>
+                setTagToRemove({ type: 'trope', bookId, id: tropeId, name })
+              }
+              onRequestRemoveArchetype={(bookId, archetypeId, name) =>
+                setTagToRemove({ type: 'archetype', bookId, id: archetypeId, name })
+              }
             />
           ))}
         </div>
+      )}
+
+      {tagToRemove && (
+        <ConfirmModal
+          title="Remove tag?"
+          message={`Remove "${tagToRemove.name}" from your personal tags? This will affect your recommendation profile.`}
+          confirmLabel="Remove"
+          onConfirm={handleConfirmRemove}
+          onCancel={() => setTagToRemove(null)}
+        />
       )}
     </div>
   )

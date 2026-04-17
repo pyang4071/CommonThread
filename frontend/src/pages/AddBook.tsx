@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useBlocker, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Author, BookType, Genre, Tone, Trope } from '../api/client'
+import { ConfirmModal } from '../components/ConfirmModal'
+import { useToast } from '../contexts/ToastContext'
 
 const WEIGHT_TIERS = [
   { value: 1.0,  label: '1.0 — Structural', description: 'The story is a deconstruction of this trope' },
@@ -34,6 +36,7 @@ type SelectedArchetype = { archetype: Archetype; importance: number }
 
 export function AddBook() {
   const navigate = useNavigate()
+  const toast = useToast()
 
   // Metadata
   const [title, setTitle] = useState('')
@@ -85,7 +88,28 @@ export function AddBook() {
   const [selectedArchetypes, setSelectedArchetypes] = useState<SelectedArchetype[]>([])
 
   const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [navigateTo, setNavigateTo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = !submitted && (
+    title.trim() !== '' || author.trim() !== '' || isbn.trim() !== '' ||
+    selectedTropes.length > 0 || selectedArchetypes.length > 0
+  )
+
+  const blocker = useBlocker(isDirty)
+
+  // Navigate only after submitted=true has re-rendered, so the blocker sees isDirty=false.
+  useEffect(() => {
+    if (navigateTo) navigate(navigateTo)
+  }, [navigateTo, navigate])
+
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
 
   useEffect(() => {
     api.tropes.list().then(setAllTropes)
@@ -168,8 +192,8 @@ export function AddBook() {
   const hasDominantTrope = selectedTropes.some(s => s.weight >= MIN_DOMINANT_WEIGHT)
 
   const validate = (): string | null => {
-    if (selectedTropes.length === 0) return 'Add at least one trope.'
-    if (!hasDominantTrope) return 'At least one trope must be Major (0.65) or above.'
+    if (selectedTropes.length > 0 && !hasDominantTrope)
+      return 'At least one trope must be rated Major (0.65) or above.'
     return null
   }
 
@@ -197,7 +221,9 @@ export function AddBook() {
         ...[...selectedBookTypeIds].map(tid => api.books.attachBookType(book.book_id, tid)),
         ...[...selectedToneIds].map(tid => api.books.attachTone(book.book_id, tid)),
       ])
-      navigate(`/books/${book.book_id}`)
+      setSubmitted(true)
+      toast.success('Book added.')
+      setNavigateTo(`/books/${book.book_id}`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')
       setSubmitting(false)
@@ -215,7 +241,10 @@ export function AddBook() {
           ← Back to Books
         </button>
         <h1 className="text-2xl font-semibold text-gray-800">Add a Book</h1>
-        <p className="text-sm text-gray-500 mt-1">All fields required unless marked optional.</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Ingest the book now — tropes and archetypes can be added here or on the book page later.
+          Recommendations unlock once the book has at least 3 tropes.
+        </p>
       </div>
 
       <form onSubmit={submit} className="space-y-8">
@@ -446,13 +475,31 @@ export function AddBook() {
         {/* Tropes */}
         <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Tropes</h2>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-              selectedTropes.length >= MAX_TROPES ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                Tropes
+                <span className="ml-1 text-gray-400 font-normal normal-case">(optional)</span>
+              </h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Recommendations unlock at 3 tropes. You can add more on the book page after creation.
+              </p>
+            </div>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${
+              selectedTropes.length >= MAX_TROPES
+                ? 'bg-red-100 text-red-600'
+                : selectedTropes.length >= 3
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-gray-100 text-gray-500'
             }`}>
               {selectedTropes.length}/{MAX_TROPES}
             </span>
           </div>
+
+          {selectedTropes.length > 0 && selectedTropes.length < 3 && (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              <span>{selectedTropes.length}/3 tropes — add {3 - selectedTropes.length} more to unlock recommendations.</span>
+            </div>
+          )}
 
           <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
             {WEIGHT_TIERS.map(t => (
@@ -513,8 +560,8 @@ export function AddBook() {
           )}
 
           {selectedTropes.length > 0 && !hasDominantTrope && (
-            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-              At least one trope must be rated Major (0.65) or above.
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              At least one trope should be rated Major (0.65) or above for a meaningful embedding.
             </p>
           )}
         </section>
@@ -609,6 +656,16 @@ export function AddBook() {
           </button>
         </div>
       </form>
+
+      {blocker.state === 'blocked' && (
+        <ConfirmModal
+          title="Leave without saving?"
+          message="You have unsaved changes. Are you sure you want to leave?"
+          confirmLabel="Leave"
+          onConfirm={() => blocker.proceed()}
+          onCancel={() => blocker.reset()}
+        />
+      )}
     </div>
   )
 }

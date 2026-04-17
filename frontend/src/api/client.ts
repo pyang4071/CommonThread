@@ -316,25 +316,33 @@ export const api = {
   },
   tones: {
     list: () => get<Tone[]>('/tones/'),
-    create: (name: string) => post<Tone>('/tones/', { name }),
-    delete: (id: number) => del(`/tones/${id}`),
+    create: (name: string, token: string) =>
+      authedFetch('POST', '/tones/', token, { name }).then(r => r.json() as Promise<Tone>),
+    delete: (id: number, token: string) =>
+      authedFetch('DELETE', `/tones/${id}`, token).then(() => {}),
   },
   archetypes: {
     list: () => get<Archetype[]>('/archetypes/'),
     get: (id: number) => get<Archetype>(`/archetypes/${id}`),
     books: (id: number) => get<(Book & { importance: number })[]>(`/archetypes/${id}/books`),
-    create: (data: Omit<Archetype, 'archetype_id'>) => post<Archetype>('/archetypes/', data),
-    delete: (id: number) => del(`/archetypes/${id}`),
+    create: (data: Omit<Archetype, 'archetype_id'>, token: string) =>
+      authedFetch('POST', '/archetypes/', token, data).then(r => r.json() as Promise<Archetype>),
+    delete: (id: number, token: string) =>
+      authedFetch('DELETE', `/archetypes/${id}`, token).then(() => {}),
   },
   genres: {
     list: () => get<Genre[]>('/genres/'),
-    create: (data: Omit<Genre, 'genre_id'>) => post<Genre>('/genres/', data),
-    delete: (id: number) => del(`/genres/${id}`),
+    create: (data: Omit<Genre, 'genre_id'>, token: string) =>
+      authedFetch('POST', '/genres/', token, data).then(r => r.json() as Promise<Genre>),
+    delete: (id: number, token: string) =>
+      authedFetch('DELETE', `/genres/${id}`, token).then(() => {}),
   },
   bookTypes: {
     list: () => get<BookType[]>('/book-types/'),
-    create: (data: Omit<BookType, 'book_type_id'>) => post<BookType>('/book-types/', data),
-    delete: (id: number) => del(`/book-types/${id}`),
+    create: (data: Omit<BookType, 'book_type_id'>, token: string) =>
+      authedFetch('POST', '/book-types/', token, data).then(r => r.json() as Promise<BookType>),
+    delete: (id: number, token: string) =>
+      authedFetch('DELETE', `/book-types/${id}`, token).then(() => {}),
   },
   ratings: {
     myRatings: (token: string) =>

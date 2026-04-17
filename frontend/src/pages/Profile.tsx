@@ -114,6 +114,7 @@ function BlocklistPicker<T>({
 export function Profile() {
   const { profile, updateProfile } = useAuth()
   const toast = useToast()
+  useEffect(() => { document.title = 'Profile — CommonThread' }, [])
 
   // Reference data for pickers
   const [genres, setGenres] = useState<Genre[]>([])
@@ -200,7 +201,8 @@ export function Profile() {
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && saveName()}
               placeholder="Your name"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              disabled={nameSaving}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <button
               onClick={saveName}
@@ -289,7 +291,7 @@ export function Profile() {
 
         {(prefs.blocked_genre_ids.length > 0 || prefs.blocked_book_type_ids.length > 0 || prefs.blocked_tone_ids.length > 0) && (
           <button
-            onClick={() => savePrefs({ blocked_genre_ids: [], blocked_book_type_ids: [], blocked_tone_ids: [] })}
+            onClick={() => savePrefs({ blocked_genre_ids: [], blocked_book_type_ids: [], blocked_tone_ids: [], profile_public: prefs.profile_public })}
             className="text-sm text-red-500 hover:text-red-700 transition-colors"
           >
             Clear all blocked content

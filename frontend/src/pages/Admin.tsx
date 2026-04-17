@@ -30,6 +30,7 @@ export function Admin() {
   const { session } = useAuth()
   const [status, setStatus] = useState<EmbedStatus | null>(null)
   const [statusLoading, setStatusLoading] = useState(true)
+  useEffect(() => { document.title = 'Admin — CommonThread' }, [])
   const [polling, setPolling] = useState(false)
   const [running, setRunning] = useState(false)
   const [lastQueued, setLastQueued] = useState<number | null>(null)

@@ -1,0 +1,14 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        {
+          "name": "sb-uwgmqjimtnygzuauygby-auth-token",
+          "value": "{\"access_token\":\"eyJhbGciOiJFUzI1NiIsImtpZCI6ImE2MzhkNmNkLTFmZjUtNDE4MC05YTVhLTgzZTYzYjY5ZDMzNSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3V3Z21xamltdG55Z3p1YXV5Z2J5LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIyZDViM2I2MC03NTdiLTQ0YWMtOTZhYy1hNjVkMjQ0YjA3ZDYiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc2MTQzOTA0LCJpYXQiOjE3NzYxNDAzMDQsImVtYWlsIjoicGFkZHl5YW5nNDA3MUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsIjoicGFkZHl5YW5nNDA3MUBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6IlNpZXN0YSIsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiMmQ1YjNiNjAtNzU3Yi00NGFjLTk2YWMtYTY1ZDI0NGIwN2Q2In0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoib3RwIiwidGltZXN0YW1wIjoxNzc2MTQwMzA0fV0sInNlc3Npb25faWQiOiI3ZGJiMDg2NS1jNzFiLTQyMjEtYTA3MS04MjIzYmMyZWQ2Y2UiLCJpc19hbm9ueW1vdXMiOmZhbHNlfQ.OVvFBzG2hoboZO6bKcu_bj1uJ-aOveg8O9oMW1yskNiPQC_GUqh_sedAAMJdhrfL9E6fgxJlMbuAHVXM7Ubvkg\",\"expires_in\":3600,\"expires_at\":1776143904,\"refresh_token\":\"czrdarreyaat\",\"token_type\":\"bearer\",\"user\":{\"id\":\"2d5b3b60-757b-44ac-96ac-a65d244b07d6\",\"aud\":\"authenticated\",\"role\":\"authenticated\",\"email\":\"paddyyang4071@gmail.com\",\"email_confirmed_at\":\"2026-03-30T20:24:23.564914Z\",\"phone\":\"\",\"confirmation_sent_at\":\"2026-03-30T20:24:00.705176Z\",\"confirmed_at\":\"2026-03-30T20:24:23.564914Z\",\"recovery_sent_at\":\"2026-04-14T04:18:23.710252Z\",\"last_sign_in_at\":\"2026-04-14T04:18:24.004973Z\",\"app_metadata\":{\"provider\":\"email\",\"providers\":[\"email\"]},\"user_metadata\":{\"email\":\"paddyyang4071@gmail.com\",\"email_verified\":true,\"name\":\"Siesta\",\"phone_verified\":false,\"sub\":\"2d5b3b60-757b-44ac-96ac-a65d244b07d6\"},\"identities\":[{\"identity_id\":\"282b14de-1a4d-4685-a7a9-c593d21fb186\",\"id\":\"2d5b3b60-757b-44ac-96ac-a65d244b07d6\",\"user_id\":\"2d5b3b60-757b-44ac-96ac-a65d244b07d6\",\"identity_data\":{\"email\":\"paddyyang4071@gmail.com\",\"email_verified\":true,\"name\":\"Siesta\",\"phone_verified\":false,\"sub\":\"2d5b3b60-757b-44ac-96ac-a65d244b07d6\"},\"provider\":\"email\",\"last_sign_in_at\":\"2026-03-30T20:24:00.701233Z\",\"created_at\":\"2026-03-30T20:24:00.701295Z\",\"updated_at\":\"2026-03-30T20:24:00.701295Z\",\"email\":\"paddyyang4071@gmail.com\"}],\"created_at\":\"2026-03-30T20:24:00.678255Z\",\"updated_at\":\"2026-04-14T04:18:24.007362Z\",\"is_anonymous\":false}}"
+        }
+      ]
+    }
+  ]
+}
