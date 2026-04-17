@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { FeedEntry, ShelfEntry, SimilarBook } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 
 function BookCard({ book, score, explanation }: SimilarBook) {
   const sharedTags = [
@@ -30,6 +31,12 @@ function BookCard({ book, score, explanation }: SimilarBook) {
             </span>
             {explanation?.source === 'collaborative' && (
               <span className="text-xs text-gray-400">👥 readers like you</span>
+            )}
+            {explanation?.source === 'description' && (
+              <span className="text-xs text-gray-400">matched by description</span>
+            )}
+            {explanation?.source === 'review' && (
+              <span className="text-xs text-gray-400">matched by reviews</span>
             )}
           </div>
         </div>
@@ -90,6 +97,16 @@ const FEED_STATUS_LABELS: Record<string, string> = {
   review: 'reviewed',
 }
 
+function relativeTime(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 function FriendFeedStrip({ feed }: { feed: FeedEntry[] }) {
   if (feed.length === 0) return null
   return (
@@ -120,6 +137,7 @@ function FriendFeedStrip({ feed }: { feed: FeedEntry[] }) {
               {entry.event_type === 'review' && entry.review_text && (
                 <p className="text-xs text-gray-400 italic truncate">"{entry.review_text}"</p>
               )}
+              <p className="text-xs text-gray-400 mt-0.5">{relativeTime(new Date(entry.occurred_at))}</p>
             </div>
           </div>
         ))}
@@ -130,6 +148,7 @@ function FriendFeedStrip({ feed }: { feed: FeedEntry[] }) {
 
 export function Home() {
   const { session } = useAuth()
+  const toast = useToast()
   const [recs, setRecs] = useState<SimilarBook[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
   const [shelf, setShelf] = useState<ShelfEntry[]>([])
@@ -137,21 +156,27 @@ export function Home() {
   const [feed, setFeed] = useState<FeedEntry[]>([])
 
   useEffect(() => {
+    document.title = 'CommonThread'
+  }, [])
+
+  useEffect(() => {
     if (!session) { setShelf([]); setRecs([]); setFeed([]); return }
 
     setShelfLoading(true)
     api.shelf.my(session.access_token)
       .then(setShelf)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load your shelf.'))
       .finally(() => setShelfLoading(false))
 
     setRecsLoading(true)
     api.books.forYou(session.access_token)
       .then(setRecs)
-      .catch(() => {})
+      .catch(() => toast.error('Failed to load recommendations.'))
       .finally(() => setRecsLoading(false))
 
-    api.users.feed(session.access_token, 10).then(setFeed).catch(() => {})
+    api.users.feed(session.access_token, 10)
+      .then(setFeed)
+      .catch(() => toast.error('Failed to load activity feed.'))
   }, [session])
 
   const currentlyReading = shelf.filter(e => e.status === 'currently_reading')
@@ -159,19 +184,32 @@ export function Home() {
 
   return (
     <div className="space-y-12">
-      {/* Hero */}
-      <div className="text-center py-12">
-        <h1 className="text-3xl font-bold text-gray-800 mb-3">CommonThread</h1>
-        <p className="text-gray-500">Book recommendations powered by tropes &amp; archetypes</p>
-        <div className="mt-6 flex justify-center gap-3">
-          <Link to="/books" className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
-            Browse Books
-          </Link>
-          <Link to="/tropes" className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
-            Browse Tropes
-          </Link>
+      {/* Hero — compact for logged-in users */}
+      {session ? (
+        <div className="flex items-center justify-between">
+          <p className="text-base font-medium text-gray-700">
+            Welcome back, {session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'reader'}
+          </p>
+          <div className="flex gap-2">
+            <Link to="/books" className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+              Browse Books
+            </Link>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="text-center py-12">
+          <h1 className="text-3xl font-bold text-gray-800 mb-3">CommonThread</h1>
+          <p className="text-gray-500">Book recommendations powered by tropes &amp; archetypes</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/books" className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
+              Browse Books
+            </Link>
+            <Link to="/tropes" className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Browse Tropes
+            </Link>
+          </div>
+        </div>
+      )}
 
       {session && (
         <>
@@ -196,7 +234,7 @@ export function Home() {
               <span className="text-sm text-gray-500">
                 🔖 <strong>{wantToRead.length}</strong> book{wantToRead.length !== 1 ? 's' : ''} on your want-to-read list
               </span>
-              <Link to="/books" className="text-sm text-indigo-600 hover:underline">
+              <Link to="/shelf" className="text-sm text-indigo-600 hover:underline">
                 Browse →
               </Link>
             </div>

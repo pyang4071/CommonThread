@@ -1,11 +1,15 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
 from app.crud import rating as crud_rating
 from app.database import get_db
+from app.database.engine import AsyncSessionLocal
 from app.models.user import AppUser
 from app.schemas.rating import RatingRead, RatingUpsert, ReviewRead
+from app.services.embedding import embed_reviews_for_book
 
 router = APIRouter(prefix="/books", tags=["ratings"])
 ratings_router = APIRouter(prefix="/ratings", tags=["ratings"])
@@ -20,6 +24,14 @@ async def get_my_rating(
     return await crud_rating.get_rating(db, current_user.user_id, book_id)
 
 
+async def _embed_reviews_in_background(book_id: int) -> None:
+    async with AsyncSessionLocal() as db:
+        try:
+            await embed_reviews_for_book(book_id, db)
+        except Exception:
+            pass  # review embedding is best-effort; never fail a rating save
+
+
 @router.put("/{book_id}/rating", response_model=RatingRead)
 async def upsert_rating(
     book_id: int,
@@ -27,9 +39,12 @@ async def upsert_rating(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user),
 ):
-    return await crud_rating.upsert_rating(
+    rating = await crud_rating.upsert_rating(
         db, current_user.user_id, book_id, data.rating, data.review_text
     )
+    if data.review_text:
+        asyncio.create_task(_embed_reviews_in_background(book_id))
+    return rating
 
 
 @router.delete("/{book_id}/rating", status_code=204)

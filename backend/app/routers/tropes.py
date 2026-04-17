@@ -26,7 +26,7 @@ async def list_categories(db: AsyncSession = Depends(get_db)):
 @router.get("/", response_model=list[TropeRead])
 async def list_tropes(
     skip: int = 0,
-    limit: int = 20,
+    limit: int = 500,
     category: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):

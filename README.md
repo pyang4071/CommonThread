@@ -21,20 +21,23 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 |---|---|
 | Backend API | Feature-complete — all routes functional |
 | Database schema | Stable (21 migrations applied) |
-| Embedding pipeline | Working — dual-stream BGE via FastEmbed |
+| Embedding pipeline | Working — dual-stream BGE via FastEmbed; threshold-gated (≥ 3 tropes) |
 | Semantic search | Working — alpha-blended genome + description |
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed, public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Functional — all major pages implemented; keyboard nav, card grid, sort controls added |
+| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes |
 | Admin dashboard | Working — embed-all, fetch-covers, status |
-| Auth | Working via Supabase JWT |
-| Testing | Minimal — pytest scaffolded, not comprehensive |
+| Auth | Working via Supabase JWT; AuthContext race condition fixed |
+| E2E Testing | **57 tests** — Playwright across public/user/admin projects; 56 pass, 1 skip (all green) |
+| Unit Testing | Minimal — pytest scaffolded, not comprehensive |
 | Deployment | Docker Compose config added (`docker-compose.yml`) |
+| Data ingestion | **`backend/webscraper/`** — Open Library API scraper; 500 books × 20 subjects → JSONL |
 
 ### In-progress / Pending
 - `embedding_jobs` and `recommendation_events` tables were dropped in the latest migration (j4k5l6m7n8o9) — they were replaced by the `embedding_status` column directly on the `books` table
 - No persistent task queue (Celery/RQ) — background tasks run in the FastAPI event loop
+- Backend unit tests — pytest scaffolded but not comprehensive
 
 ---
 
@@ -52,7 +55,7 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | FastEmbed | ≥0.8.0 | Local BGE embedding models |
 | Supabase | ≥2.28.3 | Auth (JWT) + Postgres hosting |
 | PyJWT | ≥2.12.1 | JWT validation |
-| httpx | ≥0.27.0 | Async HTTP (cover fetching) |
+| httpx | ≥0.27.0 | Async HTTP (cover fetching + Open Library scraper) |
 | psycopg2-binary | ≥2.9.0 | Alembic sync driver |
 | Pydantic Settings | ≥2.0.0 | Config management |
 | Ruff | ≥0.6.0 | Linting/formatting |
@@ -80,7 +83,31 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 CommonThread/
 ├── README.md
 ├── error_log.md
+├── FEATURES.md
+├── e2e/                             ← Playwright end-to-end test suite
+│   ├── tests/
+│   │   ├── 1-home.spec.ts           # Public: home, 404, nav
+│   │   ├── 2-auth.spec.ts           # Public: login, signup, forgot-password
+│   │   ├── 3-books.spec.ts          # User: browse, search, filters
+│   │   ├── 4-book-detail.spec.ts    # User: detail page, status, ratings
+│   │   ├── 5-tropes-archetypes.spec.ts
+│   │   ├── 6-shelf.spec.ts
+│   │   ├── 7-my-tags.spec.ts
+│   │   ├── 8-friends.spec.ts
+│   │   ├── 9-profile.spec.ts
+│   │   ├── 10-admin.spec.ts         # Admin: genres/types/tones CRUD, dashboard
+│   │   └── 11-tagging-threshold.spec.ts  # Admin: threshold badge, embed race
+│   ├── global-setup.ts              # Magic-link Supabase login, saves storageState
+│   ├── playwright.config.ts
+│   ├── .env                         # TEST_EMAIL, ADMIN_EMAIL, SUPABASE_* (gitignored)
+│   └── .auth/                       # Saved session state (gitignored)
 ├── backend/
+│   ├── webscraper/                  ← Open Library data ingestion
+│   │   ├── __init__.py
+│   │   ├── models.py                # ScrapedBook + ScrapeProgress Pydantic models
+│   │   ├── scraper.py               # Async httpx scraper (search + description fetch)
+│   │   ├── run.py                   # CLI entry point (argparse)
+│   │   └── output/                  # JSONL output + progress.json (gitignored)
 │   ├── app/
 │   │   ├── main.py              # FastAPI app init, lifespan, CORS
 │   │   ├── config.py            # Settings (reads .env)
@@ -158,7 +185,6 @@ CommonThread/
     │   │   ├── ProtectedRoute.tsx  # adminOnly prop for gating
     │   │   ├── RatingModal.tsx
     │   │   ├── ReadingStatusButton.tsx
-    │   │   ├── Table.tsx
     │   │   └── ConfirmModal.tsx
     │   └── pages/
     │       ├── Home.tsx            # Recs + currently reading + friend feed strip
@@ -179,6 +205,7 @@ CommonThread/
     │       ├── AddBook.tsx
     │       ├── EditBook.tsx
     │       ├── NotFound.tsx
+    │       ├── Unauthorized.tsx    # 403 page for non-admin hitting admin routes
     │       └── auth/
     │           ├── Login.tsx
     │           ├── SignUp.tsx
@@ -394,14 +421,69 @@ score = alpha * genome_score + (1 - alpha) * description_score
 5. Exclude books already rated or on shelf
 6. Return with explanation (shared tropes/archetypes)
 
-### Embedding Status
+### Tagging Threshold & Embedding Lifecycle
+
+Books go through a two-phase ingestion process:
+
+| Phase | Trigger | State |
+|---|---|---|
+| **Ingestion** | `POST /books` (Title, Author, ISBN, Description) | `embedding_status = pending`, `genome_embedding = NULL` |
+| **Tagging** | Admin visits book page and attaches tropes via `POST /books/{id}/tropes` | Still `pending` until threshold |
+| **Commit** | Trope count reaches `TROPE_THRESHOLD = 3` | `_embed_in_background` fires automatically |
+| **Done** | Embedding succeeds | `embedding_status = done` — book appears in Similar Books / For You |
+
+Key rules:
+- No genome embedding fires at book creation. Cover fetching still runs immediately.
+- Every `POST /books/{id}/tropes` call counts tropes after attaching; if count ≥ 3, embedding triggers.
+- If a trope is removed and the count drops below 3, `genome_embedding` is cleared and `embedding_status` resets to `pending` so the book exits the recommendation pool.
+- All other metadata changes (archetype, genre, tone, pacing) also trigger re-embedding, but only when trope count ≥ 3.
+- Admin **Embed All** skips books below the threshold — only books with ≥ 3 tropes and status ≠ `done` are queued.
 
 Each book tracks `embedding_status`:
-- `pending` — awaiting embedding (set on create/update)
-- `done` — both streams embedded and stored
-- `failed` — embedding threw an error
+- `pending` — awaiting tagging (< 3 tropes) or awaiting embedding job (≥ 3 tropes, job not yet run)
+- `done` — both genome and description streams embedded and stored
+- `failed` — embedding job threw an error (book has ≥ 3 tropes but encode failed)
 
-The Admin `/embed-all` endpoint requeues all `pending` and `failed` books.
+---
+
+## Data Ingestion (Open Library Scraper)
+
+The `backend/webscraper/` package fetches book metadata from the [Open Library API](https://openlibrary.org/developers/api) and saves it as JSONL files for later import into the database.
+
+### What it collects
+
+For each subject, the scraper calls:
+1. `GET /search.json?subject={subject}&limit=100&page=N` — paginated work list
+2. `GET /works/{id}.json` — full description per work (concurrent, up to 5 in parallel)
+
+Fields saved per book: `ol_work_key`, `title`, `authors`, `isbn`, `isbn13`, `publication_year`, `publisher`, `page_count`, `language`, `subjects`, `cover_url`, `description`, `edition_count`.
+
+### Built-in subjects (20)
+
+`fantasy`, `mystery`, `romance`, `science fiction`, `thriller`, `historical fiction`, `horror`, `young adult`, `biography`, `self-help`, `classics`, `literary fiction`, `adventure`, `crime`, `philosophy`, `psychology`, `humor`, `poetry`, `graphic novels`, `short stories`
+
+### Run
+
+```bash
+cd backend
+
+# Scrape all 20 subjects, 500 books each (~10 000 books total, ~5 min)
+uv run python -m webscraper.run
+
+# Scrape a subset
+uv run python -m webscraper.run --subjects fantasy mystery --books-per-subject 100
+
+# Resume an interrupted run
+uv run python -m webscraper.run --resume
+```
+
+Output lands in `backend/webscraper/output/`:
+- `books_<subject>.jsonl` — one JSON object per line
+- `progress.json` — checkpoint for `--resume`
+- `summary.json` — written on completion
+- `scrape.log` — full run log
+
+> The `output/` directory is gitignored. Run the scraper locally before importing into the database.
 
 ---
 
@@ -441,6 +523,48 @@ docker compose up --build
 - The `backend` service has a healthcheck that waits up to 120 s for the models to finish loading before the `frontend` container starts routing to it.
 - The frontend nginx proxies `/api/*` → `http://backend:8000`, so the browser only ever talks to port 80.
 - Set `ENVIRONMENT=production` and `CORS_ORIGINS=["https://yourdomain.com"]` in `backend/.env` for a hardened CORS policy.
+
+---
+
+## End-to-End Testing
+
+The `e2e/` directory contains a Playwright test suite covering public, authenticated user, and admin flows.
+
+### Setup
+
+```bash
+cd e2e
+npm install
+
+# Create credentials file (gitignored)
+cp .env.example .env
+# Fill in TEST_EMAIL, ADMIN_EMAIL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+```
+
+No passwords are needed — `global-setup.ts` authenticates via Supabase **magic links** using the service role key.
+
+### Run
+
+```bash
+cd e2e
+
+# All 57 tests (requires .env with credentials)
+npm test
+
+# Public tests only — no credentials needed, 14 tests
+npx playwright test --project=public
+
+# Admin tests only
+npx playwright test --project=admin
+
+# Single file
+npx playwright test 11-tagging-threshold.spec.ts --project=admin
+
+# Interactive UI mode
+npx playwright test --ui
+```
+
+The dev server (`npm run dev` in `frontend/`) and backend (`uv run fastapi dev app/main.py` in `backend/`) must both be running before executing the tests.
 
 ---
 
@@ -546,6 +670,22 @@ Supabase credentials are currently hardcoded in `src/lib/supabase.ts`. For produ
 ### SQLAlchemy Async — Eager Loading Required
 
 All relationships accessed in async route handlers **must** use explicit `selectinload()` or `joinedload()`. SQLAlchemy async does not support lazy loading (raises `MissingGreenlet`). See `feedback_async_sqlalchemy.md` in memory.
+
+### React Router — Data Router Required
+
+`App.tsx` uses `createBrowserRouter` + `RouterProvider` (React Router v7 data router), **not** the legacy `<BrowserRouter>`. This is required for `useBlocker` (navigation guard in AddBook). Do not revert to `<BrowserRouter>` — it breaks the dirty-form navigation guard.
+
+### AuthContext — Loading Flag
+
+`AuthContext.tsx` holds `loading = true` until both the Supabase session AND the `AppUser` profile are resolved. This prevents `ProtectedRoute` from seeing a transient `isAdmin = false` and firing a spurious redirect to `/unauthorized`. The `onAuthStateChange` listener skips its first event via `initializedRef` to avoid double-fetching.
+
+### Admin CRUD — Auth Token Required
+
+`api.genres.create/delete`, `api.tones.create/delete`, `api.bookTypes.create/delete`, and `api.archetypes.create/delete` all require an explicit `token` parameter (pass `session!.access_token` from `useAuth()`). They call `authedFetch()` internally. Do not use the generic unauthenticated `post()` / `del()` helpers for any admin write operation.
+
+### Embedding Race Condition Guard
+
+`_embed_in_background` (in `books.py`) checks the trope count **both before and after** calling `embed_book()`. The post-embed check ensures that if a `detach_trope` races with the background task and drops count below threshold during embedding, the `'done'` status is immediately reverted to `'pending'`. Similarly, `detach_trope` resets status whenever `embedding_status != 'pending'` (not just on `'done'`).
 
 ### Migrations
 

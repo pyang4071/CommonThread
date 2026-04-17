@@ -1,0 +1,27 @@
+{
+  "completed_at": "2026-04-14T18:37:25.267060+00:00",
+  "total_books": 10000,
+  "completed_subjects": [
+    "fantasy",
+    "mystery",
+    "romance",
+    "science fiction",
+    "thriller",
+    "historical fiction",
+    "horror",
+    "young adult",
+    "biography",
+    "self-help",
+    "classics",
+    "literary fiction",
+    "adventure",
+    "crime",
+    "philosophy",
+    "psychology",
+    "humor",
+    "poetry",
+    "graphic novels",
+    "short stories"
+  ],
+  "books_per_subject_target": 500
+}

@@ -20,7 +20,7 @@ router = APIRouter(prefix="/archetypes", tags=["archetypes"])
 
 @router.get("/", response_model=list[ArchetypeRead])
 async def list_archetypes(
-    skip: int = 0, limit: int = 20, db: AsyncSession = Depends(get_db)
+    skip: int = 0, limit: int = 500, db: AsyncSession = Depends(get_db)
 ):
     return await crud.archetype.list_archetypes(db, skip=skip, limit=limit)
 

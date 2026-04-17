@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Author, BookDetail, BookType, Genre, Tone, Trope } from '../api/client'
+import { useToast } from '../contexts/ToastContext'
 
 const WEIGHT_TIERS = [
   { value: 1.0,  label: '1.0 — Structural', description: 'The story is a deconstruction of this trope' },
@@ -35,6 +36,7 @@ type SelectedArchetype = { archetype: Archetype; importance: number }
 export function EditBook() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const toast = useToast()
   const bookId = Number(id)
 
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -289,6 +291,7 @@ export function EditBook() {
           .map(tid => api.books.attachTone(bookId, tid)),
       ])
 
+      toast.success('Changes saved.')
       navigate(`/books/${bookId}`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong.')

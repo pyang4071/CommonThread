@@ -82,7 +82,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** The ✕ button on each tag in `MyTags.tsx` calls `handleRemoveTrope` / `handleRemoveArchetype` immediately with no confirmation. Every other destructive action in the app uses a `ConfirmModal`. A misclick silently deletes a tag that influences recommendations.  
 **Fix:** Wrap the ✕ `onClick` with a `ConfirmModal` (same pattern used by Dislike and Books delete). Store `tagToRemove` state as `{ type: 'trope'|'archetype', bookId, id, name }` and render a single modal at page level.  
 **Files affected:** `MyTags.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -90,7 +90,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** The "Browse →" link next to "N books on your want-to-read list" in `Home.tsx` navigates to `/books` (the browse page). The want-to-read list actually lives on `/shelf`. Users clicking it expect to see their queued books, not the full catalogue.  
 **Fix:** Change `<Link to="/books">` to `<Link to="/shelf">` for that specific link.  
 **Files affected:** `Home.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -98,7 +98,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** `Genres.tsx`, `BookTypes.tsx`, and `Tones.tsx` are the last three pages using the `<Table>` component. They have no search/filter and no skeleton loading state. They're admin-only so lower traffic, but inconsistent with the rest of the app.  
 **Fix:** Replace `<Table>` with a simple searchable list (inline filter input + item rows with name, description, and delete button). Add `animate-pulse` skeleton loading. No card grid needed — a dense list layout suits small reference datasets better.  
 **Files affected:** `Genres.tsx`, `BookTypes.tsx`, `Tones.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -106,7 +106,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** `AddBook.tsx` navigates to the new book's detail page on success but shows no toast. `EditBook.tsx` navigates back to the book but also shows no success confirmation. The user has no explicit acknowledgment that their save worked.  
 **Fix:** Fire `toast.success('Book added.')` just before `navigate(...)` in `AddBook.tsx`, and `toast.success('Changes saved.')` in `EditBook.tsx`. Both pages already import `useNavigate`; just add `useToast`.  
 **Files affected:** `AddBook.tsx`, `EditBook.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -188,7 +188,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** With many tagged books, `MyTags.tsx` is an unfiltered grid with no way to find a specific book or tag. Users who actively tag books will outgrow the current flat grid quickly.  
 **Fix:** Add a text input above the grid that filters `entries` by `book.title`, `book.author.name`, or any trope/archetype name in the entry's tag lists (all client-side). Show a count of matching books. Clear button resets the filter.  
 **Files affected:** `MyTags.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -196,7 +196,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** The rating stars in `RatingModal.tsx` are clickable but show no hover state — hovering over star 3 doesn't preview a 3-star rating. This makes it hard to tell which star you're about to click.  
 **Fix:** Add a `hoverRating` state (number | null). On `onMouseEnter` for each star set `hoverRating = i`, on `onMouseLeave` clear it. Render filled stars up to `hoverRating ?? currentRating` so the preview is visible while hovering.  
 **Files affected:** `RatingModal.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done (already implemented — `hover` state with `display = hover ?? selected ?? 0` was in place)
 
 ---
 
@@ -204,7 +204,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** Reviews in `BookDetail.tsx` are shown in the order returned by the API with no way to re-sort. Users with many reviews can't find the most recent or highest-rated ones.  
 **Fix:** Add a small sort `<select>` above the review list: "Newest first", "Oldest first", "Highest rating", "Lowest rating". Apply as a client-side sort on the `reviews` array. Only show the control when there are 2+ reviews.  
 **Files affected:** `BookDetail.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -278,7 +278,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** Every page shows the same generic browser tab title. Users with multiple tabs open can't distinguish them, and bookmarked pages have no useful label.  
 **Fix:** Add `useEffect(() => { document.title = '...' }, [...])` to each page component. Format: `"Page Name — CommonThread"` for top-level pages, `"Item Name · Section — CommonThread"` for detail pages. Reset to `"CommonThread"` on the Home page.  
 **Files affected:** `Home.tsx`, `Books.tsx`, `BookDetail.tsx`, `Shelf.tsx`, `MyTags.tsx`, `Tropes.tsx`, `TropeDetail.tsx`, `Archetypes.tsx`, `ArchetypeDetail.tsx`, `Friends.tsx`, `Profile.tsx`, `Admin.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -286,7 +286,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** Feed items in `Friends.tsx` show an absolute date like "Apr 10". For recent activity (today, yesterday, 2 days ago) a relative label is far more useful and natural.  
 **Fix:** Add a small `relativeTime(date: Date): string` helper that returns "Today", "Yesterday", "N days ago" for the past week, then falls back to the existing `toLocaleDateString` format for older entries. Apply to `FeedItem` in `Friends.tsx` and the feed strip on `Home.tsx`.  
 **Files affected:** `Friends.tsx`, `Home.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -294,7 +294,7 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 **Problem:** The hero section (`<div className="text-center py-12">`) occupies 100+ px of vertical space with the app name and tagline — information logged-in users don't need. It pushes the "Currently Reading" shelf and recommendations below the fold.  
 **Fix:** When `session` is truthy, render a compact one-line greeting (`"Good morning, [name]"` or just hide the hero entirely) instead of the full centred hero. The full hero stays for logged-out visitors.  
 **Files affected:** `Home.tsx`.  
-**Status:** [ ] todo
+**Status:** [x] done
 
 ---
 
@@ -326,6 +326,16 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 - [x] T-24 Responsive hamburger nav — `App.tsx` (md breakpoint, `animate-panel-in`)
 - [x] T-25 UserProfile breadcrumb — `UserProfile.tsx`
 - [x] T-26 Admin auto-refresh during embedding — `Admin.tsx` (4 s polling, "Refreshing…" badge)
+- [x] T-27 Confirm before removing personal tag in MyTags — `MyTags.tsx` (`ConfirmModal`, `tagToRemove` state; API call moved to parent)
+- [x] T-28 Fix "Want to Read" → `/shelf` link on Home — `Home.tsx`
+- [x] T-29 Searchable list for Genres/BookTypes/Tones — `Genres.tsx`, `BookTypes.tsx`, `Tones.tsx` (removed `<Table>`, added filter + skeleton + `ConfirmModal`)
+- [x] T-30 Toast on success in AddBook/EditBook — `AddBook.tsx`, `EditBook.tsx`
+- [x] T-31 MyTags search/filter — `MyTags.tsx` (filter by book, author, tag name; count + clear button)
+- [x] T-32 Star hover preview in RatingModal — already implemented (`hover` state, `display = hover ?? selected ?? 0`)
+- [x] T-33 Review sort controls on BookDetail — `BookDetail.tsx` (Newest/Oldest/Highest/Lowest; shown when 2+ reviews)
+- [x] T-34 Dynamic browser tab titles — all 12 page components
+- [x] T-35 Relative timestamps in Friends feed — `Friends.tsx`, `Home.tsx` (Today/Yesterday/N days ago helper)
+- [x] T-36 Compact hero for logged-in users — `Home.tsx` (one-line greeting with name; full hero for logged-out)
 - [x] Supabase credentials moved to `VITE_*` env vars (`frontend/.env.local`, `.env.example`)
 - [x] Cover fetch retry logic (3 attempts, exponential back-off) — `services/covers.py`
 - [x] FastEmbed model pre-warm in lifespan — `main.py`
@@ -335,3 +345,4 @@ Prioritized improvements identified from a full read of `frontend/src/`. Items a
 - [x] `profile_public` privacy toggle on profile page — stored in `preferences` JSONB, toggle switch in Profile UI
 - [x] Admin-only nav links hidden from standard users — `ProtectedRoute` `adminOnly` prop, `App.tsx`
 - [x] Friends / follow system — `user_follows` table (migration `l6m7n8o9p0q1`), follow/unfollow/search endpoints, activity feed, `Friends.tsx` page, `UserProfile.tsx` page, friend strip on `Home.tsx`
+- [x] Open Library data ingestion scraper — `backend/webscraper/` (`models.py`, `scraper.py`, `run.py`); 500 books × 20 subjects → JSONL; async httpx, concurrent description fetch, checkpointed resume

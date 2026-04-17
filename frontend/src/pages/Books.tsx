@@ -17,26 +17,6 @@ const SHELF_OPTIONS = [
   { value: 'not_on_shelf',      label: '✕ Not on shelf',   active: 'bg-gray-600 text-white',    inactive: 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200' },
 ]
 
-// ── chip components ───────────────────────────────────────────────────────────
-
-function IncludeChip({ name, onRemove }: { name: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
-      {name}
-      <button type="button" onClick={onRemove} className="hover:text-indigo-900 leading-none">×</button>
-    </span>
-  )
-}
-
-function ExcludeChip({ name, onRemove }: { name: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-      {name}
-      <button type="button" onClick={onRemove} className="hover:text-red-900 leading-none">×</button>
-    </span>
-  )
-}
-
 // ── typeahead picker ──────────────────────────────────────────────────────────
 
 function ChipPicker<T>({
@@ -167,6 +147,7 @@ function ChipPicker<T>({
 
 export function Books() {
   const { session, profile, isAdmin } = useAuth()
+  useEffect(() => { document.title = 'Browse Books — CommonThread' }, [])
 
   // Reference data
   const [genres, setGenres] = useState<Genre[]>([])
@@ -175,6 +156,7 @@ export function Books() {
   const [tropeCategories, setTropeCategories] = useState<string[]>([])
   const [allTropes, setAllTropes] = useState<Trope[]>([])
   const [allArchetypes, setAllArchetypes] = useState<Archetype[]>([])
+  const [refDataError, setRefDataError] = useState(false)
 
   // Book list
   const [books, setBooks] = useState<Book[]>([])
@@ -236,12 +218,13 @@ export function Books() {
 
   // ── data loading ──
   useEffect(() => {
-    api.genres.list().then(setGenres).catch(() => {})
-    api.bookTypes.list().then(setBookTypes).catch(() => {})
-    api.tones.list().then(setTones).catch(() => {})
-    api.tropes.categories().then(setTropeCategories).catch(() => {})
-    api.tropes.list().then(setAllTropes).catch(() => {})
-    api.archetypes.list().then(setAllArchetypes).catch(() => {})
+    const onError = () => setRefDataError(true)
+    api.genres.list().then(setGenres).catch(onError)
+    api.bookTypes.list().then(setBookTypes).catch(onError)
+    api.tones.list().then(setTones).catch(onError)
+    api.tropes.categories().then(setTropeCategories).catch(onError)
+    api.tropes.list().then(setAllTropes).catch(onError)
+    api.archetypes.list().then(setAllArchetypes).catch(onError)
   }, [])
 
   const filterKey = [
@@ -420,6 +403,12 @@ export function Books() {
       {/* ── Filter panel ── */}
       {filtersOpen && (
         <div className="animate-panel-in bg-white border border-gray-200 rounded-xl p-5 space-y-5">
+
+          {refDataError && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              Some filter options failed to load. Refresh the page to try again.
+            </p>
+          )}
 
           {/* Include section */}
           <div>

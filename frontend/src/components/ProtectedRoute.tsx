@@ -11,7 +11,7 @@ export function ProtectedRoute({ children, adminOnly = false }: Props) {
 
   if (loading) return <p className="text-gray-400 text-sm p-8">Loading…</p>
   if (!session) return <Navigate to="/auth/login" replace />
-  if (adminOnly && !isAdmin) return <Navigate to="/404" replace />
+  if (adminOnly && !isAdmin) return <Navigate to="/unauthorized" replace />
 
   return <>{children}</>
 }

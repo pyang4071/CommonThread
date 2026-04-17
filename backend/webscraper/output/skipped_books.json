@@ -1,0 +1,762 @@
+[
+  {
+    "ol_work_key": "/works/OL1156251W",
+    "title": "M\u00e9moires",
+    "reason": "Autobiography/memoir by Giacomo Casanova \u2014 not narrative fiction"
+  },
+  {
+    "ol_work_key": "/works/OL52257W",
+    "title": "The World Set Free",
+    "reason": "Description is only an archive.org URL \u2014 no meaningful content to tag"
+  },
+  {
+    "ol_work_key": "/works/OL7973273W",
+    "title": "The Devil's Dictionary",
+    "reason": "Satirical reference dictionary \u2014 not narrative fiction"
+  },
+  {
+    "ol_work_key": "/works/OL832133W",
+    "title": "We're Going on a Bear Hunt",
+    "reason": "Children's picture book \u2014 not suitable for trope/archetype tagging"
+  },
+  {
+    "ol_work_key": "/works/OL23869W",
+    "title": "Les Contes de ma m\u00e8re l'Oye",
+    "reason": "French fairy tale anthology \u2014 does not fit single-narrative taxonomy"
+  },
+  {
+    "ol_work_key": "/works/OL262358W",
+    "title": "The Complete Life and Adventures of Santa Claus",
+    "reason": "Children's mythology retelling \u2014 no standard narrative taxonomy fit"
+  },
+  {
+    "ol_work_key": "/works/OL77559W",
+    "title": "The Age of Fable",
+    "reason": "Non-fiction mythology reference compendium \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL26460746W",
+    "title": "The Tale of Peter Rabbit",
+    "reason": "Picture book \u2014 too short to tag meaningfully"
+  },
+  {
+    "ol_work_key": "/works/OL58402W",
+    "title": "Guess How Much I Love You",
+    "reason": "Picture book \u2014 too short to tag"
+  },
+  {
+    "ol_work_key": "/works/OL80592W",
+    "title": "Les confessions",
+    "reason": "Non-fiction autobiography"
+  },
+  {
+    "ol_work_key": "/works/OL54059W",
+    "title": "Roughing It",
+    "reason": "Non-fiction travel memoir"
+  },
+  {
+    "ol_work_key": "/works/OL262554W",
+    "title": "The Complete Sherlock Holmes",
+    "reason": "Omnibus collection \u2014 not a single narrative work"
+  },
+  {
+    "ol_work_key": "/works/OL2292673W",
+    "title": "Expedition Kon-Tiki",
+    "reason": "Non-fiction adventure memoir"
+  },
+  {
+    "ol_work_key": "/works/OL14871228W",
+    "title": "The Adventures of Captain Underpants",
+    "reason": "Children's graphic chapter book \u2014 humor/visual format, minimal taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL53918W",
+    "title": "A Tramp Abroad",
+    "reason": "Non-fiction travel memoir"
+  },
+  {
+    "ol_work_key": "/works/OL16025215W",
+    "title": "Novels (Adventures of Huckleberry Finn / Adventures of Tom Sawyer)",
+    "reason": "Omnibus of two novels already tagged individually"
+  },
+  {
+    "ol_work_key": "/works/OL831023W",
+    "title": "The Snowy Day",
+    "reason": "Picture book \u2014 too short to tag meaningfully"
+  },
+  {
+    "ol_work_key": "/works/OL70988W",
+    "title": "The Chronicles of Narnia",
+    "reason": "Omnibus collection of 7 novels \u2014 individual volumes already tagged"
+  },
+  {
+    "ol_work_key": "/works/OL81773W",
+    "title": "Dinosaurs Before Dark",
+    "reason": "Early chapter book (Magic Tree House) \u2014 too short to tag meaningfully"
+  },
+  {
+    "ol_work_key": "/works/OL1974548W",
+    "title": "Into Thin Air",
+    "reason": "Non-fiction survival memoir"
+  },
+  {
+    "ol_work_key": "/works/OL8119758W",
+    "title": "Captain Underpants and the Invasion of the Incredibly Naughty Cafeteria Ladies from Outer Space",
+    "reason": "Children's graphic chapter book \u2014 minimal taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL144709W",
+    "title": "Novels (The Call of the Wild / White Fang)",
+    "reason": "Omnibus of two novels \u2014 considered individually"
+  },
+  {
+    "ol_work_key": "/works/OL1815550W",
+    "title": "Two years before the mast",
+    "reason": "Non-fiction nautical memoir"
+  },
+  {
+    "ol_work_key": "/works/OL86707W",
+    "title": "Stellaluna",
+    "reason": "Picture book \u2014 too short to tag meaningfully"
+  },
+  {
+    "ol_work_key": "/works/OL14871282W",
+    "title": "Captain Underpants and the Perilous Plot of Professor Poopypants",
+    "reason": "Children's graphic chapter book"
+  },
+  {
+    "ol_work_key": "/works/OL106091W",
+    "title": "Danny and the Dinosaur",
+    "reason": "Very short early reader \u2014 minimal narrative taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL20173104W",
+    "title": "The Swiss Family Robinson",
+    "reason": "Duplicate of OL15406011W already tagged"
+  },
+  {
+    "ol_work_key": "/works/OL874159W",
+    "title": "Endurance",
+    "reason": "Non-fiction survival expedition account"
+  },
+  {
+    "ol_work_key": "/works/OL52982W",
+    "title": "The Tiny Seed",
+    "reason": "Picture book \u2014 too short to tag"
+  },
+  {
+    "ol_work_key": "/works/OL14871259W",
+    "title": "Captain Underpants and the Preposterous Plight of the Purple Potty People",
+    "reason": "Children's graphic chapter book"
+  },
+  {
+    "ol_work_key": "/works/OL88684W",
+    "title": "The Paper Bag Princess",
+    "reason": "Picture book \u2014 too short to tag"
+  },
+  {
+    "ol_work_key": "/works/OL28986W",
+    "title": "His Dark Materials",
+    "reason": "Omnibus \u2014 individual volumes already tagged"
+  },
+  {
+    "ol_work_key": "/works/OL63457W",
+    "title": "Diarios de Motocicleta",
+    "reason": "Non-fiction travel memoir"
+  },
+  {
+    "ol_work_key": "/works/OL13716952W",
+    "title": "Fantastic Beasts and Where to Find Them",
+    "reason": "In-world reference book/companion \u2014 not a narrative novel"
+  },
+  {
+    "ol_work_key": "/works/OL800722W",
+    "title": "In the Heart of the Sea",
+    "reason": "Non-fiction historical account"
+  },
+  {
+    "ol_work_key": "/works/OL8115854W",
+    "title": "Il mio nome \u00e8 Stilton, Geronimo Stilton",
+    "reason": "Children's chapter book \u2014 minimal narrative taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL2383558W",
+    "title": "Le petit Nicolas",
+    "reason": "Children's episodic story collection \u2014 no unified narrative"
+  },
+  {
+    "ol_work_key": "/works/OL1932963W",
+    "title": "Amelia Bedelia",
+    "reason": "Very short early reader \u2014 minimal taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL53026W",
+    "title": "Rooster who set out to see the world",
+    "reason": "Picture book \u2014 too short to tag"
+  },
+  {
+    "ol_work_key": "/works/OL151377W",
+    "title": "Jabberwocky",
+    "reason": "Short poem \u2014 not a narrative novel"
+  },
+  {
+    "ol_work_key": "/works/OL17610986W",
+    "title": "Dog Man",
+    "reason": "Children's graphic chapter book \u2014 minimal taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL8756057W",
+    "title": "Naruto 5",
+    "reason": "Manga volume \u2014 visual format, single volume not representative of full arc"
+  },
+  {
+    "ol_work_key": "/works/OL8115819W",
+    "title": "Un Disparatado Viaje A Ratikistan",
+    "reason": "Children's chapter book series \u2014 minimal taxonomy depth"
+  },
+  {
+    "ol_work_key": "/works/OL1974546W",
+    "title": "Into the Wild",
+    "reason": "Non-fiction biography/adventure"
+  },
+  {
+    "ol_work_key": "/works/OL8115877W",
+    "title": "La Sonrisa De Mona Ratisa",
+    "reason": "Children's chapter book series"
+  },
+  {
+    "ol_work_key": "/works/OL8115832W",
+    "title": "El misterio del ojo esmeralda",
+    "reason": "Children's chapter book series"
+  },
+  {
+    "ol_work_key": "/works/OL8115813W",
+    "title": "Tutta colpa di un caff\u00e8 con panna",
+    "reason": "Children's chapter book series"
+  },
+  {
+    "ol_work_key": "/works/OL1931005W",
+    "title": "South: the story of Shackleton's 1914-1917 expedition",
+    "reason": "Non-fiction expedition memoir"
+  },
+  {
+    "ol_work_key": "/works/OL1513584W",
+    "title": "By the King",
+    "reason": "Historical government document \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL8115844W",
+    "title": "Quattro topi nella giungla nera",
+    "reason": "Children's chapter book series"
+  },
+  {
+    "ol_work_key": "/works/OL1843658W",
+    "title": "La Nuit du Titanic",
+    "reason": "Non-fiction historical account"
+  },
+  {
+    "ol_work_key": "/works/OL8115837W",
+    "title": "Quella stratopica vacanza alla pensione Mirasorci...",
+    "reason": "Children's chapter book series"
+  },
+  {
+    "ol_work_key": "/works/OL37277W",
+    "title": "The Autobiography of Alice B. Toklas",
+    "reason": "Non-fiction memoir (albeit experimental) \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL2163715W",
+    "title": "The Salmon of Doubt",
+    "reason": "Posthumous collection of essays and unfinished novel \u2014 not a standalone novel"
+  },
+  {
+    "ol_work_key": "/works/OL151445W",
+    "title": "A Tangled Tale",
+    "reason": "Mathematical puzzle collection in story form \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL15518787W",
+    "title": "The Hunger Games Trilogy",
+    "reason": "Omnibus \u2014 individual volumes already tagged"
+  },
+  {
+    "ol_work_key": "/works/OL743333W",
+    "title": "The Life of Olaudah Equiano",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL528094W",
+    "title": "Autobiography of a Yogi",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL69178W",
+    "title": "Narrative of the Life of Frederick Douglass",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL1073898W",
+    "title": "The Story of Philosophy",
+    "reason": "non-fiction philosophy"
+  },
+  {
+    "ol_work_key": "/works/OL2521179W",
+    "title": "Lives",
+    "reason": "ancient biographical collection"
+  },
+  {
+    "ol_work_key": "/works/OL86701W",
+    "title": "Terre des hommes",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL15692719W",
+    "title": "Der Antichrist",
+    "reason": "non-fiction philosophy"
+  },
+  {
+    "ol_work_key": "/works/OL8300173W",
+    "title": "American Notes",
+    "reason": "non-fiction travel"
+  },
+  {
+    "ol_work_key": "/works/OL28623W",
+    "title": "Incidents in the Life of a Slave Girl",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL298031W",
+    "title": "An Autobiography (Gandhi)",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL78871W",
+    "title": "Twelve Years a Slave",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL137872W",
+    "title": "Confessions (Augustine)",
+    "reason": "religious autobiography"
+  },
+  {
+    "ol_work_key": "/works/OL357501W",
+    "title": "Up from Slavery",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL26492W",
+    "title": "The Autobiography of Benjamin Franklin",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL1822313W",
+    "title": "Tuesdays with Morrie",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL6322288W",
+    "title": "A Mind That Found Itself",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL860066W",
+    "title": "Se questo \u00e8 un uomo",
+    "reason": "non-fiction Holocaust memoir"
+  },
+  {
+    "ol_work_key": "/works/OL1168169W",
+    "title": "Homage to Catalonia",
+    "reason": "non-fiction political memoir"
+  },
+  {
+    "ol_work_key": "/works/OL1067314W",
+    "title": "Mein Kampf",
+    "reason": "political non-fiction \u2014 skip"
+  },
+  {
+    "ol_work_key": "/works/OL1268413W",
+    "title": "Man's Search for Meaning",
+    "reason": "non-fiction psychology/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL55649W",
+    "title": "Walden",
+    "reason": "non-fiction nature philosophy"
+  },
+  {
+    "ol_work_key": "/works/OL134334W",
+    "title": "A History of the English-Speaking Peoples",
+    "reason": "non-fiction history"
+  },
+  {
+    "ol_work_key": "/works/OL849217W",
+    "title": "Maria; or, The Wrongs of Woman",
+    "reason": "unfinished philosophical novel \u2014 skip"
+  },
+  {
+    "ol_work_key": "/works/OL1455259W",
+    "title": "Poems by John Keats",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL27634W",
+    "title": "Angela's Ashes",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL193961W",
+    "title": "Diary of Samuel Pepys",
+    "reason": "historical diary"
+  },
+  {
+    "ol_work_key": "/works/OL723491W",
+    "title": "Moralia",
+    "reason": "ancient essays"
+  },
+  {
+    "ol_work_key": "/works/OL1168030W",
+    "title": "Down and Out in Paris and London",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL76350W",
+    "title": "Orthodoxy",
+    "reason": "non-fiction theology"
+  },
+  {
+    "ol_work_key": "/works/OL518262W",
+    "title": "Vincent van Gogh (letters)",
+    "reason": "non-fiction art letters"
+  },
+  {
+    "ol_work_key": "/works/OL53959W",
+    "title": "Life on the Mississippi",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL28577W",
+    "title": "The Souls of Black Folk",
+    "reason": "non-fiction essays"
+  },
+  {
+    "ol_work_key": "/works/OL2248600W",
+    "title": "Max Ernst",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL1001044W",
+    "title": "Henry Moore",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL1238284W",
+    "title": "Exercitia Spiritualia",
+    "reason": "religious exercises"
+  },
+  {
+    "ol_work_key": "/works/OL51784W",
+    "title": "Euthyphro / Crito / Phaedo / Apology",
+    "reason": "philosophical dialogues"
+  },
+  {
+    "ol_work_key": "/works/OL3800761W",
+    "title": "Letters to a Young Poet",
+    "reason": "non-fiction letters"
+  },
+  {
+    "ol_work_key": "/works/OL15584860W",
+    "title": "The Travels of Marco Polo",
+    "reason": "non-fiction travel"
+  },
+  {
+    "ol_work_key": "/works/OL1158921W",
+    "title": "Les fleurs du mal",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL134333W",
+    "title": "The Second World War",
+    "reason": "non-fiction history"
+  },
+  {
+    "ol_work_key": "/works/OL266178W",
+    "title": "Het Achterhuis (The Diary of a Young Girl)",
+    "reason": "Non-fiction diary \u2014 not a novel (though highly literary)"
+  },
+  {
+    "ol_work_key": "/works/OL1086528W",
+    "title": "Essais (Montaigne)",
+    "reason": "non-fiction philosophy essays"
+  },
+  {
+    "ol_work_key": "/works/OL629052W",
+    "title": "Manifest der Kommunistischen Partei",
+    "reason": "political pamphlet"
+  },
+  {
+    "ol_work_key": "/works/OL361466W",
+    "title": "King Henry V",
+    "reason": "play \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL362706W",
+    "title": "Sonnets",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL15420303W",
+    "title": "John Donne Poetry",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL1317211W",
+    "title": "Meditations",
+    "reason": "non-fiction philosophy"
+  },
+  {
+    "ol_work_key": "/works/OL1261147W",
+    "title": "Ab Urbe Condita",
+    "reason": "ancient history"
+  },
+  {
+    "ol_work_key": "/works/OL972930W",
+    "title": "Paul Klee",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL16333W",
+    "title": "Leaves of Grass",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL362289W",
+    "title": "Shakespeare's 36 Plays",
+    "reason": "omnibus plays"
+  },
+  {
+    "ol_work_key": "/works/OL145191W",
+    "title": "Picasso",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL531767W",
+    "title": "The Canterbury Tales",
+    "reason": "medieval poem collection"
+  },
+  {
+    "ol_work_key": "/works/OL259028W",
+    "title": "Works (Shakespeare)",
+    "reason": "omnibus plays and poetry"
+  },
+  {
+    "ol_work_key": "/works/OL1089297W",
+    "title": "The Prince",
+    "reason": "non-fiction political treatise"
+  },
+  {
+    "ol_work_key": "/works/OL15292640W",
+    "title": "Metamorphoses",
+    "reason": "ancient poem/mythology"
+  },
+  {
+    "ol_work_key": "/works/OL362702W",
+    "title": "Julius Caesar",
+    "reason": "play \u2014 not a novel"
+  },
+  {
+    "ol_work_key": "/works/OL17732W",
+    "title": "Bible",
+    "reason": "religious text"
+  },
+  {
+    "ol_work_key": "/works/OL1105384W",
+    "title": "Memoirs of a Revolutionist",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL3946622W",
+    "title": "The Book of Five Rings",
+    "reason": "non-fiction philosophy/strategy"
+  },
+  {
+    "ol_work_key": "/works/OL4875453W",
+    "title": "Marc Chagall",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL284420W",
+    "title": "The Federalist",
+    "reason": "political essays"
+  },
+  {
+    "ol_work_key": "/works/OL76399W",
+    "title": "Saint Francis of Assisi",
+    "reason": "non-fiction biography"
+  },
+  {
+    "ol_work_key": "/works/OL518261W",
+    "title": "Van Gogh (Zeri)",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL695408W",
+    "title": "Leonardo",
+    "reason": "art/biography"
+  },
+  {
+    "ol_work_key": "/works/OL272388W",
+    "title": "The Gulag Archipelago",
+    "reason": "non-fiction documentary"
+  },
+  {
+    "ol_work_key": "/works/OL136192W",
+    "title": "Edvard Munch",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL766052W",
+    "title": "Complete Poetical Works (Burns)",
+    "reason": "poetry collection"
+  },
+  {
+    "ol_work_key": "/works/OL26610W",
+    "title": "Way to Wealth",
+    "reason": "non-fiction"
+  },
+  {
+    "ol_work_key": "/works/OL145190W",
+    "title": "Picasso (Lieberman)",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL847061W",
+    "title": "The Book of Disquiet",
+    "reason": "non-fiction/experimental prose fragments"
+  },
+  {
+    "ol_work_key": "/works/OL498788W",
+    "title": "Briefe an Milena",
+    "reason": "letters \u2014 non-fiction"
+  },
+  {
+    "ol_work_key": "/works/OL644644W",
+    "title": "Andy Warhol",
+    "reason": "art book"
+  },
+  {
+    "ol_work_key": "/works/OL144798W",
+    "title": "John Barleycorn",
+    "reason": "non-fiction memoir"
+  },
+  {
+    "ol_work_key": "/works/OL80021W",
+    "title": "I Know Why the Caged Bird Sings",
+    "reason": "autobiography/memoir"
+  },
+  {
+    "ol_work_key": "/works/OL63910W",
+    "title": "The Works of Washington Irving",
+    "reason": "Short story/essay collection \u2014 no single unified narrative"
+  },
+  {
+    "ol_work_key": "/works/OL1069221W",
+    "title": "Collected papers",
+    "reason": "Academic paper collection \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL26131W",
+    "title": "Poems",
+    "reason": "Poetry collection \u2014 narrative trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL1223677W",
+    "title": "Dei delitte e delle pene",
+    "reason": "Philosophical/legal treatise \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL1214254W",
+    "title": "Mein Weltbild",
+    "reason": "Scientific and philosophical essay collection \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL1597257W",
+    "title": "The Muqaddimah, an introduction to history",
+    "reason": "Historical/sociological treatise \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL74757W",
+    "title": "The Birds of America",
+    "reason": "Scientific/naturalist reference work \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL578528W",
+    "title": "Joan Mir\u00f3",
+    "reason": "Artist portfolio/art book \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL1210514W",
+    "title": "What is life? The physical aspect of the living cell",
+    "reason": "Scientific essay \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL55611W",
+    "title": "Journal",
+    "reason": "Personal journal/nature writing \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL55631W",
+    "title": "Civil Disobedience",
+    "reason": "Political essay \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL3477651W",
+    "title": "Hitchcock",
+    "reason": "Film criticism/interview compendium \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL8305641W",
+    "title": "Dictionary of National Biography",
+    "reason": "Reference/biographical dictionary \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL284349W",
+    "title": "The Poetical Works of John Dryden",
+    "reason": "Poetry collection \u2014 narrative trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL3346507W",
+    "title": "Confessions of an advertising man",
+    "reason": "Business memoir/how-to book \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL2720606W",
+    "title": "How to Get Rich",
+    "reason": "Business self-help book \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL766042W",
+    "title": "The works of Robert Burns",
+    "reason": "Poetry collection \u2014 narrative trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL55721W",
+    "title": "The Maine Woods",
+    "reason": "Nature writing/travel essays \u2014 no narrative structure in the fiction sense; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL16048229W",
+    "title": "Poems (Shakespeare)",
+    "reason": "Poetry collection \u2014 narrative trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL16802331W",
+    "title": "Lean In",
+    "reason": "Business self-help book \u2014 no narrative structure; trope taxonomy does not apply"
+  },
+  {
+    "ol_work_key": "/works/OL67551W",
+    "title": "De officiis",
+    "reason": "Philosophical treatise \u2014 no narrative structure; trope taxonomy does not apply"
+  }
+]

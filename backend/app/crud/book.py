@@ -360,37 +360,59 @@ async def get_recommendations_for_user(
         return []
 
     # ── 3. Build preference vector ────────────────────────────────────────────
+    # Try genome first; fall back to description if no genome embeddings exist
+    # for the user's liked books. The two streams are searched independently —
+    # they live in different vector spaces (384-dim vs 768-dim).
     from app.crud.user_tags import get_aggregated_taste
     from app.services.embedding import embed_user_taste
 
-    emb_q = await db.execute(
+    genome_q = await db.execute(
         select(Book.genome_embedding)
         .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
     )
-    embeddings = [row[0] for row in emb_q.all()]
-    if not embeddings:
-        return []
-    preference = np.mean(embeddings, axis=0)
+    genome_embeddings = [row[0] for row in genome_q.all()]
 
-    # ── 3b. Blend user taste vector (personal tags) at 30% weight ────────────
-    taste_tropes, taste_archetypes = await get_aggregated_taste(db, user_id)
-    if taste_tropes or taste_archetypes:
-        taste_vec = await embed_user_taste(taste_tropes, taste_archetypes)
-        if taste_vec is not None:
-            preference = 0.7 * preference + 0.3 * np.array(taste_vec)
+    if genome_embeddings:
+        use_stream = "genome"
+        preference = np.mean(genome_embeddings, axis=0)
+
+        # ── 3b. Blend user taste vector (personal tags) at 30% weight ────────
+        taste_tropes, taste_archetypes = await get_aggregated_taste(db, user_id)
+        if taste_tropes or taste_archetypes:
+            taste_vec = await embed_user_taste(taste_tropes, taste_archetypes)
+            if taste_vec is not None:
+                preference = 0.7 * preference + 0.3 * np.array(taste_vec)
+    else:
+        desc_q = await db.execute(
+            select(Book.description_embedding)
+            .where(Book.book_id.in_(high_rated_ids), Book.description_embedding.is_not(None))
+        )
+        desc_embeddings = [row[0] for row in desc_q.all()]
+        if not desc_embeddings:
+            return []
+        use_stream = "description"
+        preference = np.mean(desc_embeddings, axis=0)
 
     # ── 4. Embedding candidates (over-fetch for diversity + dislike filtering) ─
     fetch_n = limit * 5
+    await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
+
+    if use_stream == "genome":
+        search_col = Book.genome_embedding
+        where_emb = Book.genome_embedding.is_not(None)
+    else:
+        search_col = Book.description_embedding
+        where_emb = Book.description_embedding.is_not(None)
+
     emb_stmt = (
-        select(Book, Book.genome_embedding.cosine_distance(preference).label("distance"))
-        .where(Book.genome_embedding.is_not(None), Book.deleted_at.is_(None))
+        select(Book, search_col.cosine_distance(preference).label("distance"))
+        .where(where_emb, Book.deleted_at.is_(None))
         .order_by("distance")
         .limit(fetch_n)
     )
     if exclude_ids:
         emb_stmt = emb_stmt.where(Book.book_id.not_in(exclude_ids))
 
-    await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
     emb_result = await db.execute(emb_stmt)
     emb_candidates: list[tuple[Book, float]] = [
         (row.Book, 1 - row.distance) for row in emb_result.all()
@@ -531,10 +553,11 @@ async def get_recommendations_for_user(
     # deduplicate by book_id (collab takes priority)
     seen: set[int] = set()
     merged: list[tuple[Book, float, str]] = []
+    collab_ids = {cp[0].book_id for cp in collab_picks}
     for book, score in all_picks:
         if book.book_id not in seen:
             seen.add(book.book_id)
-            src = "collaborative" if any(book.book_id == cp[0].book_id for cp in collab_picks) else "embedding"
+            src = "collaborative" if book.book_id in collab_ids else use_stream
             merged.append((book, score, src))
     merged = merged[:limit]
 
@@ -606,26 +629,32 @@ async def get_similar_books(
     if book is None:
         return []
 
-    # Over-fetch candidates via embedding for re-ranking
+    # Over-fetch candidates via embedding for re-ranking.
+    # Use genome stream when available; fall back to description stream.
+    # Return empty when neither stream is populated (book has no signal).
+    await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
+
     if book.genome_embedding is not None:
-        await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
-        emb_result = await db.execute(
-            select(Book, Book.genome_embedding.cosine_distance(book.genome_embedding).label("distance"))
-            .where(Book.book_id != book_id, Book.deleted_at.is_(None))
-            .where(Book.genome_embedding.is_not(None))
-            .order_by("distance")
-            .limit(limit * 4)
-        )
-        rows = emb_result.all()
-        candidate_books = {row.Book.book_id: row.Book for row in rows}
-        emb_scores: dict[int, float] = {row.Book.book_id: 1 - row.distance for row in rows}
+        search_vec = book.genome_embedding
+        search_col = Book.genome_embedding
+        where_emb = Book.genome_embedding.is_not(None)
+    elif book.description_embedding is not None:
+        search_vec = book.description_embedding
+        search_col = Book.description_embedding
+        where_emb = Book.description_embedding.is_not(None)
     else:
-        all_result = await db.execute(
-            select(Book).where(Book.book_id != book_id, Book.deleted_at.is_(None))
-        )
-        all_books = list(all_result.scalars())
-        candidate_books = {b.book_id: b for b in all_books}
-        emb_scores = {b.book_id: 0.0 for b in all_books}
+        return []
+
+    emb_result = await db.execute(
+        select(Book, search_col.cosine_distance(search_vec).label("distance"))
+        .where(Book.book_id != book_id, Book.deleted_at.is_(None))
+        .where(where_emb)
+        .order_by("distance")
+        .limit(limit * 4)
+    )
+    rows = emb_result.all()
+    candidate_books = {row.Book.book_id: row.Book for row in rows}
+    emb_scores: dict[int, float] = {row.Book.book_id: 1 - row.distance for row in rows}
 
     if not candidate_books:
         return []

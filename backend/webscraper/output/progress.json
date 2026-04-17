@@ -1,0 +1,26 @@
+{
+  "completed_subjects": [
+    "fantasy",
+    "mystery",
+    "romance",
+    "science fiction",
+    "thriller",
+    "historical fiction",
+    "horror",
+    "young adult",
+    "biography",
+    "self-help",
+    "classics",
+    "literary fiction",
+    "adventure",
+    "crime",
+    "philosophy",
+    "psychology",
+    "humor",
+    "poetry",
+    "graphic novels",
+    "short stories"
+  ],
+  "in_progress": {},
+  "total_books_scraped": 10000
+}

@@ -10,9 +10,13 @@ from app.auth import require_admin
 from app.database import get_db
 from app.database.engine import AsyncSessionLocal
 from app.models.book import Book
+from app.models.book_trope import BookTrope
 from app.models.user import AppUser
 from app.services.covers import fetch_cover_url
 from app.services.embedding import embed_book, embed_books_batch
+
+# Must match TROPE_THRESHOLD in routers/books.py
+TROPE_THRESHOLD = 3
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -92,8 +96,17 @@ async def embed_all(db: AsyncSession = Depends(get_db), _: AppUser = Depends(req
     run concurrently within each chunk.
     Returns the number of books queued.
     """
+    # Only embed books that have reached the tagging threshold — books with fewer
+    # than TROPE_THRESHOLD tropes are intentionally left as 'pending' until tagged.
+    eligible_book_ids = (
+        select(BookTrope.book_id)
+        .group_by(BookTrope.book_id)
+        .having(func.count() >= TROPE_THRESHOLD)
+    )
     result = await db.execute(
-        select(Book.book_id).where(Book.embedding_status != "done")
+        select(Book.book_id)
+        .where(Book.embedding_status != "done")
+        .where(Book.book_id.in_(eligible_book_ids))
     )
     book_ids = list(result.scalars().all())
     if not book_ids:

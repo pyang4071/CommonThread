@@ -21,6 +21,10 @@ export function ArchetypeDetail() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    document.title = archetype ? `${archetype.name} · Archetypes — CommonThread` : 'Archetypes — CommonThread'
+  }, [archetype])
+
+  useEffect(() => {
     if (!id) return
     const archetypeId = Number(id)
     Promise.all([

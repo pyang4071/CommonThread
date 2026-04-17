@@ -5,6 +5,7 @@ import type { ShelfEntry } from '../api/client'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
 import { useAuth } from '../contexts/AuthContext'
+import { useSessionState } from '../hooks/useSessionState'
 
 const SECTIONS: { status: StatusValue; label: string; icon: string; emptyLabel: string }[] = [
   { status: 'currently_reading', label: 'Currently Reading', icon: '📖', emptyLabel: 'Nothing in progress yet.' },
@@ -65,7 +66,8 @@ export function Shelf() {
   const { session } = useAuth()
   const [entries, setEntries] = useState<ShelfEntry[]>([])
   const [loading, setLoading] = useState(true)
-  const [sort, setSort] = useState<SortKey>('newest')
+  useEffect(() => { document.title = 'My Shelf — CommonThread' }, [])
+  const [sort, setSort] = useSessionState<SortKey>('shelf:sort', 'newest')
 
   useEffect(() => {
     if (!session) return
@@ -86,7 +88,7 @@ export function Shelf() {
     }
   }
 
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useSessionState('shelf:query', '')
 
   const total = entries.length
   const filtered = entries.filter(e =>
