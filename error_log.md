@@ -528,6 +528,89 @@ npm run test:public   # no credentials needed — 14/14 pass
 
 ---
 
+### 2026-04-17 — `overflow-hidden` on book card clips absolutely-positioned shelf dropdown
+
+**Context**: `frontend/src/pages/Books.tsx` — `ReadingStatusButton` dropdown inside a book card.
+
+**Error**: Clicking the "Add to Shelf" button on the Books page opened a dropdown that was immediately invisible — clipped to the card bounds with no visual feedback.
+
+**Root Cause**: The card `<div>` had `overflow-hidden` set to clip the cover image corners. CSS `overflow-hidden` makes the element the containing block for absolutely-positioned descendants, clipping anything that renders outside the card's bounds. The `ReadingStatusButton` dropdown positioned itself absolutely relative to its trigger but was cropped by the parent's overflow boundary.
+
+**Fix**: Removed `overflow-hidden` from the card `<div>`. Added `rounded-tl-lg rounded-bl-lg` directly to the cover `<img>` and placeholder `<div>` to preserve the rounded corner appearance without creating an overflow boundary.
+
+**Prevention**: Never put `overflow-hidden` on a container that has absolutely-positioned children (dropdowns, tooltips, modals). Apply rounded corners directly to the element that needs them instead.
+
+---
+
+### 2026-04-17 — `Book.search_vector` not mapped on ORM model
+
+**Context**: `backend/app/crud/search.py` — `_lexical_leg()` accessing `Book.search_vector` for full-text search.
+
+**Error**:
+```
+AttributeError: type object 'Book' has no attribute 'search_vector'
+```
+
+**Root Cause**: Migration `n8o9p0q1r2s3` added a `search_vector tsvector GENERATED ALWAYS AS (...)` column to the `books` table in PostgreSQL, but the corresponding `Book` SQLAlchemy ORM model in `app/models/book.py` was never updated to declare the column. The column existed in the DB but was invisible to ORM queries.
+
+**Fix**: Added `search_vector: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True, deferred=True)` to `Book`. Used `deferred=True` because the column is large and never needed in non-search contexts. Added `from sqlalchemy.dialects.postgresql import TSVECTOR` to the model imports.
+
+**Prevention**: Whenever a migration adds a column, update the ORM model in the same PR. Generated columns (`GENERATED ALWAYS`) are no different — they must be declared on the model to be usable in ORM expressions like `func.ts_rank_cd(Book.search_vector, tsq)`.
+
+---
+
+### 2026-04-17 — `asyncio.gather` with shared SQLAlchemy async session raises concurrent operation error
+
+**Context**: `backend/app/crud/search.py` — `hybrid_search()` running both search legs in parallel.
+
+**Error**:
+```
+sqlalchemy.exc.InvalidRequestError: This session is provisioning a new connection;
+concurrent operations are not permitted
+```
+
+**Root Cause**: `asyncio.gather(_lexical_leg(db, ...), _semantic_leg(db, ...))` ran both coroutines concurrently on the **same** `AsyncSession` object. SQLAlchemy async sessions are not thread-safe and do not support concurrent operations — the session was trying to provision a connection while already in progress.
+
+**Fix**: Changed to sequential execution:
+```python
+lex_ids = await _lexical_leg(db, query, top_n, filter_kwargs)
+sem_ids = await _semantic_leg(db, query, top_n, filter_kwargs)
+```
+
+**Prevention**: A single `AsyncSession` instance must be used sequentially — one `await` at a time. To run DB operations truly in parallel, create separate sessions for each task. When in doubt, run sequentially; the latency difference is negligible for queries that hit indexed columns.
+
+---
+
+### 2026-04-17 — `SET LOCAL hnsw.ef_search` silently dropped in Supabase session pooler
+
+**Context**: `backend/app/crud/search.py` — `_semantic_leg()` executing `SET LOCAL hnsw.ef_search = 40` before a vector cosine query.
+
+**Error**: No exception, but `SET LOCAL` had no effect: the HNSW index configuration was not applied, meaning the ANN index behaviour was whatever the server default was.
+
+**Root Cause**: `SET LOCAL` only persists for the duration of the current transaction block. Supabase's session pooler issues each `await db.execute()` as a standalone statement, not inside an explicit `BEGIN`/`COMMIT`. `SET LOCAL` outside a transaction is either a no-op or raises a warning depending on PostgreSQL version.
+
+**Fix**: Removed the `SET LOCAL hnsw.ef_search = 40` statement from `_semantic_leg()`. The HNSW index will use the server default `ef_search`. If tuning is needed in future, it must be done via a `BEGIN` / `SET LOCAL` / query / `COMMIT` block or by setting `hnsw.ef_search` as a session-level parameter in the connection string.
+
+**Prevention**: `SET LOCAL` requires an active transaction. In pooler/serverless DB configurations (Supabase, PgBouncer), avoid `SET LOCAL` unless you explicitly wrap the operation in a transaction via `async with db.begin()`.
+
+---
+
+### 2026-04-17 — Open Library import created duplicate editions of the same work
+
+**Context**: `backend/scripts/import_books.py` — deduplication logic; the DB after a full Open Library import.
+
+**Error**: The Books page showed multiple identical-looking entries for popular works (Pride and Prejudice ×5, Dracula ×3, Coraline ×4, etc.). 1,240 out of 7,012 active books were duplicates.
+
+**Root Cause**: The import script only deduped by ISBN (`Book.isbn == isbn`). Open Library has dozens of distinct ISBNs for the same work (each publisher/edition gets its own ISBN), so every edition was imported as a separate row with a unique ISBN but the same title and author.
+
+**Fix**:
+1. **Cleanup**: Soft-deleted the 1,240 duplicates via SQL — for each `(lower(title), author_id)` group, kept the lowest `book_id` and set `deleted_at = now()` on all others. 5,772 books remain.
+2. **Prevention**: Added a title+author dedup check in `import_books.py` after the ISBN check. Before inserting, the script now queries `lower(title) + lower(author.name)` against active books and skips if a match exists.
+
+**Prevention**: When importing from any catalog that uses edition-level ISBNs (Open Library, WorldCat, Goodreads), always deduplicate at the work level (`title + author`), not the edition level (`isbn`). Different ISBNs for the same `(title, author)` pair are almost always editions of the same work, not distinct books.
+
+---
+
 ### 2026-04-17 — Pre-existing TypeScript errors blocking `npm run build`
 
 **Context**: Discovered during Step 7 (frontend source labels) when verifying the build. None of these errors are in files changed during the recommendation engine work.

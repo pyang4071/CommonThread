@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
-import type { Archetype, Book, BookType, Genre, SimilarBook, Tone, Trope } from '../api/client'
+import type { Archetype, Book, BookType, Genre, HybridResult, Tone, Trope } from '../api/client'
 import { ConfirmModal } from '../components/ConfirmModal'
 import { ReadingStatusButton } from '../components/ReadingStatusButton'
 import type { StatusValue } from '../components/ReadingStatusButton'
@@ -9,6 +9,25 @@ import { useAuth } from '../contexts/AuthContext'
 import { useSessionState } from '../hooks/useSessionState'
 
 const PAGE_SIZE = 25
+
+const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
+  { code: 'eng', label: 'English' },
+  { code: 'spa', label: 'Spanish' },
+  { code: 'fre', label: 'French' },
+  { code: 'ger', label: 'German' },
+  { code: 'pol', label: 'Polish' },
+  { code: 'ita', label: 'Italian' },
+  { code: 'chi', label: 'Chinese' },
+  { code: 'rus', label: 'Russian' },
+  { code: 'por', label: 'Portuguese' },
+  { code: 'heb', label: 'Hebrew' },
+  { code: 'dut', label: 'Dutch' },
+  { code: 'gre', label: 'Greek' },
+  { code: 'jpn', label: 'Japanese' },
+  { code: 'cat', label: 'Catalan' },
+  { code: 'tur', label: 'Turkish' },
+  { code: 'dan', label: 'Danish' },
+]
 
 const SHELF_OPTIONS = [
   { value: 'want_to_read',      label: '🔖 Want to Read', active: 'bg-indigo-600 text-white',  inactive: 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100' },
@@ -168,7 +187,6 @@ export function Books() {
 
   // Panel visibility — persisted so panels stay open on return
   const [filtersOpen, setFiltersOpen] = useSessionState('books:filtersOpen', false)
-  const [vibeOpen, setVibeOpen] = useSessionState('books:vibeOpen', false)
 
   // ── shared filter state — all persisted across navigation ──
   const [selectedGenres, setSelectedGenres] = useSessionState<Genre[]>('books:selectedGenres', [])
@@ -182,17 +200,16 @@ export function Books() {
   // ── shelf filter ──
   const [shelfFilter, setShelfFilter] = useSessionState<string | undefined>('books:shelfFilter', undefined)
 
-  // ── keyword search ──
-  const [searchInput, setSearchInput] = useSessionState('books:searchInput', '')
-  const [search, setSearch] = useSessionState('books:search', '')
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ── language filter ──
+  const [languageFilter, setLanguageFilter] = useSessionState<string | undefined>('books:languageFilter', undefined)
 
-  // ── vibe search ──
-  const [promptInput, setPromptInput] = useSessionState('books:promptInput', '')
-  const [alpha, setAlpha] = useSessionState('books:alpha', 0.7)
-  const [semanticResults, setSemanticResults] = useState<SimilarBook[] | null>(null)
-  const [semanticLoading, setSemanticLoading] = useState(false)
-  const [semanticError, setSemanticError] = useState<string | null>(null)
+  // ── search ──
+  const [searchInput, setSearchInput] = useSessionState('books:searchInput', '')
+  const [alpha, setAlpha] = useSessionState('books:alpha', 0.5)
+  const [hybridResults, setHybridResults] = useState<HybridResult[] | null>(null)
+  const [hybridLoading, setHybridLoading] = useState(false)
+  const [hybridError, setHybridError] = useState<string | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── derived ──
   const blocked = profile?.preferences ?? { blocked_genre_ids: [], blocked_book_type_ids: [], blocked_tone_ids: [] }
@@ -208,13 +225,14 @@ export function Books() {
     excludeGenreIds: blocked.blocked_genre_ids,
     excludeBookTypeIds: blocked.blocked_book_type_ids,
     excludeToneIds: blocked.blocked_tone_ids,
+    language: languageFilter,
   }
 
   const activeFilterCount =
     selectedGenres.length + selectedBookTypes.length + selectedTones.length +
     selectedCategories.length + (pacing != null ? 1 : 0) +
     excludedTropes.length + excludedArchetypes.length +
-    (shelfFilter ? 1 : 0)
+    (shelfFilter ? 1 : 0) + (languageFilter ? 1 : 0)
 
   // ── data loading ──
   useEffect(() => {
@@ -228,7 +246,6 @@ export function Books() {
   }, [])
 
   const filterKey = [
-    search,
     sharedFilterParams.categories.join(),
     sharedFilterParams.genreIds.join(),
     sharedFilterParams.bookTypeIds.join(),
@@ -237,6 +254,7 @@ export function Books() {
     sharedFilterParams.excludeTropeIds.join(),
     sharedFilterParams.excludeArchetypeIds.join(),
     shelfFilter ?? '',
+    languageFilter ?? '',
   ].join('|')
 
   // Reset to page 0 when filters change
@@ -249,11 +267,10 @@ export function Books() {
   const pageKey = `${filterKey}|${page}|${shelfVersion}`
 
   useEffect(() => {
-    if (semanticResults) return
+    if (hybridResults) return
     setLoading(true)
     api.books
       .list({
-        search: search || undefined,
         ...sharedFilterParams,
         skip: page * PAGE_SIZE,
         limit: PAGE_SIZE + 1,
@@ -266,34 +283,53 @@ export function Books() {
   }, [pageKey])
 
   // ── handlers ──
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value)
-    setSemanticResults(null)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setSearch(value), 300)
+  const runHybridSearch = (value: string) => {
+    if (!value.trim()) {
+      setHybridResults(null)
+      setHybridError(null)
+      return
+    }
+    setHybridLoading(true)
+    setHybridError(null)
+    api.search.hybrid({
+      q: value.trim(),
+      alpha,
+      genre_ids: sharedFilterParams.genreIds,
+      book_type_ids: sharedFilterParams.bookTypeIds,
+      tone_ids: sharedFilterParams.toneIds,
+      pacing: sharedFilterParams.pacing,
+      categories: sharedFilterParams.categories,
+      exclude_trope_ids: sharedFilterParams.excludeTropeIds,
+      exclude_archetype_ids: sharedFilterParams.excludeArchetypeIds,
+      exclude_genre_ids: sharedFilterParams.excludeGenreIds,
+      exclude_book_type_ids: sharedFilterParams.excludeBookTypeIds,
+      exclude_tone_ids: sharedFilterParams.excludeToneIds,
+    })
+      .then(results => { setHybridResults(results); setHybridLoading(false) })
+      .catch((e: unknown) => {
+        setHybridError(e instanceof Error ? e.message : 'Search failed.')
+        setHybridLoading(false)
+      })
   }
 
-  const runSemanticSearch = async () => {
-    if (!promptInput.trim()) return
-    setSemanticLoading(true)
-    setSemanticError(null)
-    try {
-      const results = await api.search.semantic(promptInput.trim(), 10, alpha, sharedFilterParams)
-      setSemanticResults(results)
-    } catch (e: unknown) {
-      setSemanticError(e instanceof Error ? e.message : 'Search failed.')
-    } finally {
-      setSemanticLoading(false)
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!value.trim()) {
+      setHybridResults(null)
+      setHybridError(null)
+      return
     }
+    debounceRef.current = setTimeout(() => runHybridSearch(value), 300)
   }
 
   const clearAll = () => {
-    setSearchInput(''); setSearch('')
+    setSearchInput('')
     setSelectedGenres([]); setSelectedBookTypes([]); setSelectedTones([])
     setSelectedCategories([]); setPacing(undefined)
     setExcludedTropes([]); setExcludedArchetypes([])
-    setShelfFilter(undefined)
-    setSemanticResults(null); setPromptInput(''); setSemanticError(null)
+    setShelfFilter(undefined); setLanguageFilter(undefined)
+    setHybridResults(null); setHybridError(null)
   }
 
   useEffect(() => {
@@ -310,7 +346,7 @@ export function Books() {
   const remove = async (book: Book) => {
     await api.books.delete(book.book_id)
     api.books.list({
-      search: search || undefined, ...sharedFilterParams,
+      ...sharedFilterParams,
       skip: page * PAGE_SIZE, limit: PAGE_SIZE + 1,
       shelfStatus: shelfFilter,
       token: (shelfFilter && session?.access_token) ? session.access_token : undefined,
@@ -319,7 +355,7 @@ export function Books() {
 
   const [bookToDelete, setBookToDelete] = useState<Book | null>(null)
 
-  const hasAnything = activeFilterCount > 0 || search || semanticResults
+  const hasAnything = activeFilterCount > 0 || !!searchInput || !!hybridResults
 
   // ── render ──
   return (
@@ -336,7 +372,7 @@ export function Books() {
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Search by title or author…"
+          placeholder="Search by title, author, or describe a vibe…"
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -357,18 +393,6 @@ export function Books() {
           )}
           <span className="text-xs opacity-60">{filtersOpen ? '▲' : '▼'}</span>
         </button>
-        <button
-          onClick={() => setVibeOpen(o => !o)}
-          title="Describe a feeling or theme in plain language — e.g. 'cozy mystery with a slow-burn romance'. The slider controls how much weight goes to plot structure vs. prose vibe."
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-            vibeOpen || semanticResults
-              ? 'bg-indigo-600 text-white border-indigo-600'
-              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-          }`}
-        >
-          Vibe Search
-          <span className="text-xs opacity-60">{vibeOpen ? '▲' : '▼'}</span>
-        </button>
         {hasAnything && (
           <button onClick={clearAll} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg bg-white">
             Clear all
@@ -376,14 +400,41 @@ export function Books() {
         )}
       </div>
 
+      {/* ── Alpha slider (inline, only when query is active) ── */}
+      {searchInput.trim() && (
+        <div className="flex items-center gap-3 px-1">
+          <span className="text-xs text-gray-400 whitespace-nowrap">More vibe</span>
+          <input
+            type="range" min={0} max={1} step={0.05} value={alpha}
+            onChange={e => {
+              const v = Number(e.target.value)
+              setAlpha(v)
+              if (debounceRef.current) clearTimeout(debounceRef.current)
+              debounceRef.current = setTimeout(() => runHybridSearch(searchInput), 300)
+            }}
+            className="w-40 accent-indigo-600"
+            title={`${Math.round(alpha * 100)}% keyword / ${Math.round((1 - alpha) * 100)}% semantic`}
+          />
+          <span className="text-xs text-gray-400 whitespace-nowrap">More keyword</span>
+          <span className="text-xs text-indigo-600 font-medium ml-1">
+            {alpha >= 0.8 ? 'Keyword-heavy' : alpha <= 0.2 ? 'Vibe-heavy' : `${Math.round(alpha * 100)}% keyword`}
+          </span>
+        </div>
+      )}
+
       {/* ── Filter / result summary ── */}
-      {(activeFilterCount > 0 || search || semanticResults) && (
+      {hasAnything && (
         <div className="flex items-center gap-2 text-sm text-gray-500 -mt-1">
-          {semanticResults ? (
+          {hybridResults ? (
             <span>
-              {semanticResults.length} vibe result{semanticResults.length !== 1 ? 's' : ''}
-              {' '}for &ldquo;{promptInput}&rdquo;
+              {hybridLoading ? 'Searching…' : `${hybridResults.length} result${hybridResults.length !== 1 ? 's' : ''} for `}
+              {!hybridLoading && <>&ldquo;{searchInput}&rdquo;</>}
+              {activeFilterCount > 0 && (
+                <> · <span className="font-medium text-indigo-600">{activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active</span></>
+              )}
             </span>
+          ) : hybridLoading ? (
+            <span>Searching…</span>
           ) : loading ? (
             <span>Loading…</span>
           ) : (
@@ -391,9 +442,6 @@ export function Books() {
               {Math.min(books.length, PAGE_SIZE)}{books.length > PAGE_SIZE ? '+' : ''} book{books.length !== 1 ? 's' : ''}
               {activeFilterCount > 0 && (
                 <> · <span className="font-medium text-indigo-600">{activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active</span></>
-              )}
-              {search && !activeFilterCount && (
-                <> · keyword &ldquo;{search}&rdquo;</>
               )}
             </span>
           )}
@@ -478,6 +526,27 @@ export function Books() {
             </div>
           </div>
 
+          {/* Language filter */}
+          <div className="mt-4">
+            <p className="text-xs text-gray-500 mb-2">Language</p>
+            <div className="flex flex-wrap gap-2">
+              {LANGUAGE_OPTIONS.map(opt => (
+                <button
+                  key={opt.code}
+                  type="button"
+                  onClick={() => setLanguageFilter(languageFilter === opt.code ? undefined : opt.code)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    languageFilter === opt.code
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Shelf filter — only shown when logged in */}
           {session && (
             <div className="mt-4">
@@ -533,129 +602,87 @@ export function Books() {
         </div>
       )}
 
-      {/* ── Vibe search panel ── */}
-      {vibeOpen && (
-        <div className="animate-panel-in bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-indigo-800">Vibe Search</p>
-            <p className="text-xs text-indigo-500 mt-0.5">
-              Describe a feeling, theme, or story in plain language — the engine matches by meaning, not just keywords.
-              {activeFilterCount > 0 && <> Filters are still active and will narrow results.</>}
-            </p>
-          </div>
-
-          {/* Example prompts */}
-          <div>
-            <p className="text-xs text-indigo-400 mb-1.5">Try an example:</p>
-            <div className="flex flex-wrap gap-1.5">
-              {[
-                'cozy mystery with a found family',
-                'slow-burn romance in a fantasy setting',
-                'dark academia with an unreliable narrator',
-                'heartwarming coming-of-age in a small town',
-              ].map(example => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() => setPromptInput(example)}
-                  className="px-2.5 py-1 text-xs rounded-full bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Alpha slider */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-indigo-500">
-              <span>More vibe &amp; prose</span>
-              <span className="text-indigo-700 font-medium">
-                {alpha >= 0.8 ? 'Structure-heavy' : alpha <= 0.2 ? 'Vibe-heavy' : `${Math.round(alpha * 100)}% structure`}
-              </span>
-              <span>More tropes &amp; archetypes</span>
-            </div>
-            <input
-              type="range" min={0} max={1} step={0.05} value={alpha}
-              onChange={e => setAlpha(Number(e.target.value))}
-              className="w-full accent-indigo-600"
-            />
-          </div>
-
-          {/* Query input + submit */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={promptInput}
-              onChange={e => setPromptInput(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && runSemanticSearch()}
-              placeholder="Describe what you're in the mood for…"
-              className="flex-1 px-3 py-2 border border-indigo-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-            <button
-              onClick={runSemanticSearch}
-              disabled={semanticLoading || !promptInput.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {semanticLoading ? 'Searching…' : 'Find Books'}
-            </button>
-          </div>
-          {semanticError && <p className="text-xs text-red-500">{semanticError}</p>}
-        </div>
-      )}
-
-      {/* ── Vibe results ── */}
-      {semanticResults && (
+      {/* ── Hybrid search results ── */}
+      {(hybridResults || hybridLoading || hybridError) && (
         <div>
-          <p className="text-sm text-gray-500 mb-3">
-            {semanticResults.length} result{semanticResults.length !== 1 ? 's' : ''} for &ldquo;{promptInput}&rdquo;
-          </p>
-          {semanticResults.length === 0 ? (
-            <p className="text-gray-400 text-sm">No matches found.</p>
-          ) : (
+          {hybridError && <p className="text-xs text-red-500 mb-2">{hybridError}</p>}
+          {hybridLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {semanticResults.map(({ book, score }) => (
-                <div key={book.book_id} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col gap-2">
-                  <Link to={`/books/${book.book_id}`} className="flex items-start gap-3 flex-1">
-                    {book.cover_url && (
-                      <img src={book.cover_url} alt="" className="w-12 shrink-0 rounded object-cover" />
-                    )}
-                    <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-gray-800 text-sm truncate">{book.title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{book.author.name}</p>
-                        {book.publication_date && (
-                          <p className="text-xs text-gray-400 mt-0.5">{new Date(book.publication_date).getFullYear()}</p>
-                        )}
-                      </div>
-                      <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-                        {Math.round(score * 100)}%
-                      </span>
-                    </div>
-                  </Link>
-                  {book.description && (
-                    <p className="text-xs text-gray-400 line-clamp-2">{book.description}</p>
-                  )}
-                  <div className="pt-1 border-t border-gray-100">
-                    {book.avg_rating != null ? (
-                      <span className="flex items-center gap-1 text-xs font-medium text-amber-600">
-                        <span className="text-amber-400">★</span>
-                        {book.avg_rating.toFixed(1)}
-                        <span className="text-gray-400 font-normal">/ 5</span>
-                      </span>
-                    ) : (
-                      <span className="text-xs text-gray-400">No ratings yet</span>
-                    )}
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse flex">
+                  <div className="w-20 shrink-0 bg-gray-200 self-stretch" />
+                  <div className="p-3 flex-1 space-y-2">
+                    <div className="h-4 w-3/4 bg-gray-200 rounded" />
+                    <div className="h-3 w-1/2 bg-gray-200 rounded" />
+                    <div className="h-3 w-1/3 bg-gray-200 rounded" />
                   </div>
                 </div>
               ))}
             </div>
-          )}
+          ) : hybridResults && hybridResults.length === 0 ? (
+            <p className="text-gray-400 text-sm">No matches found.</p>
+          ) : hybridResults ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {hybridResults.map(({ book, score, match_type }) => (
+                <div key={book.book_id} className="bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
+                  <Link to={`/books/${book.book_id}`} className="flex flex-1 min-h-0">
+                    {book.cover_url ? (
+                      <img src={book.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch rounded-tl-lg rounded-bl-lg" />
+                    ) : (
+                      <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-tl-lg rounded-bl-lg">📖</div>
+                    )}
+                    <div className="p-3 flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{book.title}</p>
+                        <span className="shrink-0 text-xs font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">
+                          {Math.round(score * 1000) / 10}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{book.author.name}</p>
+                      {book.publication_date && (
+                        <p className="text-xs text-gray-400 mt-0.5">{new Date(book.publication_date).getFullYear()}</p>
+                      )}
+                      {match_type === 'semantic' && (
+                        <span className="mt-1 inline-block text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">matched by vibe</span>
+                      )}
+                      {book.avg_rating != null ? (
+                        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">
+                          <span className="text-amber-400">★</span>{book.avg_rating.toFixed(1)}
+                        </span>
+                      ) : (
+                        <span className="mt-1 block text-xs text-gray-300">No ratings</span>
+                      )}
+                    </div>
+                  </Link>
+                  {(session || isAdmin) && (
+                    <div className="px-3 pb-3 flex items-center justify-between gap-2">
+                      {session ? (
+                        <ReadingStatusButton
+                          bookId={book.book_id}
+                          token={session.access_token}
+                          initial={shelfMap[book.book_id] ?? null}
+                          onChange={s => {
+                            setShelfMap(prev => {
+                              const next = { ...prev }
+                              if (s === null) delete next[book.book_id]
+                              else next[book.book_id] = s
+                              return next
+                            })
+                            if (shelfFilter) setShelfVersion(v => v + 1)
+                          }}
+                        />
+                      ) : <span />}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       )}
 
       {/* ── Regular book table ── */}
-      {!semanticResults && (
+      {!hybridResults && !hybridLoading && (
         <>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           {loading ? (
@@ -678,12 +705,12 @@ export function Books() {
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {books.slice(0, PAGE_SIZE).map(b => (
-                  <div key={b.book_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
+                  <div key={b.book_id} className="bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
                     <Link to={`/books/${b.book_id}`} className="flex flex-1 min-h-0">
                       {b.cover_url ? (
-                        <img src={b.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch" />
+                        <img src={b.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch rounded-tl-lg rounded-bl-lg" />
                       ) : (
-                        <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none">📖</div>
+                        <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-tl-lg rounded-bl-lg">📖</div>
                       )}
                       <div className="p-3 flex-1 min-w-0">
                         <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{b.title}</p>

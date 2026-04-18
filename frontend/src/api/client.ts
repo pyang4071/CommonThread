@@ -127,6 +127,8 @@ export type Book = {
   publication_date: string | null
   description: string | null
   pacing: number | null
+  page_count: number | null
+  language: string | null
   cover_url: string | null
   avg_rating: number | null
   created_at: string
@@ -200,6 +202,31 @@ export type SimilarBook = {
   explanation: RecommendationExplanation | null
 }
 
+export type HybridResult = {
+  book: Book
+  score: number
+  match_type: 'both' | 'lexical' | 'semantic'
+  lex_rank: number | null
+  sem_rank: number | null
+}
+
+export type HybridSearchRequest = {
+  q: string
+  top_n?: number
+  alpha?: number
+  min_score?: number
+  genre_ids?: number[]
+  book_type_ids?: number[]
+  tone_ids?: number[]
+  pacing?: number
+  categories?: string[]
+  exclude_trope_ids?: number[]
+  exclude_archetype_ids?: number[]
+  exclude_genre_ids?: number[]
+  exclude_book_type_ids?: number[]
+  exclude_tone_ids?: number[]
+}
+
 export type ReadingStatus = {
   book_id: number
   status: 'want_to_read' | 'currently_reading' | 'read'
@@ -241,6 +268,9 @@ export const api = {
       skip?: number
       limit?: number
       shelfStatus?: string
+      pageCountMin?: number
+      pageCountMax?: number
+      language?: string
       token?: string
     }) => {
       const qs = new URLSearchParams()
@@ -258,6 +288,9 @@ export const api = {
       if (params?.skip != null) qs.set('skip', String(params.skip))
       if (params?.limit != null) qs.set('limit', String(params.limit))
       if (params?.shelfStatus) qs.set('shelf_status', params.shelfStatus)
+      if (params?.pageCountMin != null) qs.set('page_count_min', String(params.pageCountMin))
+      if (params?.pageCountMax != null) qs.set('page_count_max', String(params.pageCountMax))
+      if (params?.language) qs.set('language', params.language)
       const path = '/books/' + (qs.toString() ? `?${qs.toString()}` : '')
       if (params?.token) return authedFetch('GET', path, params.token).then(r => r.json() as Promise<Book[]>)
       return get<Book[]>(path)
@@ -478,5 +511,14 @@ export const api = {
       for (const id of filters?.excludeArchetypeIds ?? []) qs.append('exclude_archetype_ids', String(id))
       return get<SimilarBook[]>(`/search/?${qs.toString()}`)
     },
+    hybrid: (body: HybridSearchRequest) =>
+      fetch(`${BASE}/search/hybrid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then(async r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<HybridResult[]>
+      }),
   },
 }
