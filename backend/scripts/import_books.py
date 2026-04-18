@@ -167,6 +167,22 @@ async def import_book(db, scraped: ScrapedBook, dry_run: bool = False) -> bool:
     if existing.scalar_one_or_none() is not None:
         return False
 
+    # Duplicate check by title + author (catches different editions of the same work)
+    from sqlalchemy import func as _func
+    from app.models.author import Author
+    author_name_lower = scraped.authors[0].strip().lower()
+    title_lower = scraped.title.strip().lower()
+    dup = await db.execute(
+        select(Book)
+        .join(Author, Book.author_id == Author.author_id)
+        .where(_func.lower(Book.title) == title_lower)
+        .where(_func.lower(Author.name) == author_name_lower)
+        .where(Book.deleted_at.is_(None))
+        .limit(1)
+    )
+    if dup.scalar_one_or_none() is not None:
+        return False
+
     if dry_run:
         return True
 
@@ -196,6 +212,8 @@ async def import_book(db, scraped: ScrapedBook, dry_run: bool = False) -> bool:
         publication_date=data.publication_date,
         description=data.description,
         cover_url=scraped.cover_url,
+        page_count=scraped.page_count,
+        language=scraped.language,
     )
     db.add(book)
     await db.flush()  # get book_id

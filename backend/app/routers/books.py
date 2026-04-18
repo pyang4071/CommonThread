@@ -127,6 +127,9 @@ async def list_books(
     exclude_book_type_ids: list[int] = Query(default=[]),
     exclude_tone_ids: list[int] = Query(default=[]),
     shelf_status: str | None = None,
+    page_count_min: int | None = None,
+    page_count_max: int | None = None,
+    language: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: AppUser | None = Depends(get_optional_user),
 ):
@@ -144,6 +147,9 @@ async def list_books(
         exclude_tone_ids=exclude_tone_ids or None,
         shelf_status=shelf_status,
         user_id=current_user.user_id if current_user else None,
+        page_count_min=page_count_min,
+        page_count_max=page_count_max,
+        language=language,
     )
     book_ids = [b.book_id for b in books]
     avg_map: dict[int, float] = {}
