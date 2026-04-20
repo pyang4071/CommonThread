@@ -20,7 +20,6 @@ class UserRead(BaseModel):
     email: str
     created_at: datetime
     is_admin: bool = False
-    onboarding_completed: bool = False
     preferences: UserPreferences = UserPreferences()
 
     @field_validator("preferences", mode="before")

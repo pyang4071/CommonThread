@@ -78,7 +78,6 @@ export type AppUser = {
   email: string
   created_at: string
   is_admin: boolean
-  onboarding_completed: boolean
   preferences: UserPreferences
 }
 
@@ -497,6 +496,9 @@ export const api = {
     create: (data: { name: string; description?: string | null }) => post<Series>('/series/', data),
     update: (id: number, data: { name: string; description?: string | null }) => put<Series>(`/series/${id}`, data),
     delete: (id: number) => del(`/series/${id}`),
+  },
+  health: {
+    get: () => get<{ status: string; models: { genome: string; description: string; review: string } }>('/health'),
   },
   search: {
     semantic: (q: string, limit = 10, alpha = 0.7, filters?: {

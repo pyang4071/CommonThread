@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 type EmbedStatus = { total: number; done: number; pending: number; failed: number }
 type VectorCoverage = { total: number; both: number; description_only: number; neither: number; genome_eligible: number }
+type HealthStatus = { status: string; models: { genome: string; description: string; review: string } }
 
 function CoverageBar({ both, description_only, neither, total, genome_eligible }: VectorCoverage) {
   if (total === 0) return <p className="text-sm text-gray-400">No books yet.</p>
@@ -83,6 +84,7 @@ export function Admin() {
   const [coverRunning, setCoverRunning] = useState(false)
   const [coversQueued, setCoversQueued] = useState<number | null>(null)
   const [coverError, setCoverError] = useState<string | null>(null)
+  const [health, setHealth] = useState<HealthStatus | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevPendingRef = useRef<number | null>(null)
   const stalePollsRef = useRef(0)
@@ -128,7 +130,11 @@ export function Admin() {
       .finally(() => setStatusLoading(false))
   }
 
-  useEffect(() => { loadStatus(); loadCoverage() }, [session])
+  useEffect(() => {
+    loadStatus()
+    loadCoverage()
+    api.health.get().then(setHealth).catch(() => {})
+  }, [session])
 
   useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current) }, [])
 
@@ -286,6 +292,32 @@ export function Admin() {
         )}
         {coverError && <p className="text-sm text-red-500">{coverError}</p>}
       </div>
+
+      {/* Model status panel */}
+      {health && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-800">Embedding Models</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Models must be loaded before embedding jobs can run.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {(['genome', 'description', 'review'] as const).map(m => {
+              const state = health.models[m]
+              const ready = state === 'ready'
+              return (
+                <div key={m} className={`p-3 rounded-lg border ${ready ? 'bg-emerald-50 border-emerald-100' : 'bg-amber-50 border-amber-200'}`}>
+                  <p className="text-xs font-medium text-gray-600 capitalize">{m}</p>
+                  <p className={`text-sm font-semibold mt-0.5 ${ready ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {ready ? 'Ready' : 'Loading…'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

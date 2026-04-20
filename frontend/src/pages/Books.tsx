@@ -203,6 +203,10 @@ export function Books() {
   // ── language filter ──
   const [languageFilter, setLanguageFilter] = useSessionState<string | undefined>('books:languageFilter', undefined)
 
+  // ── page count range ──
+  const [pageCountMin, setPageCountMin] = useSessionState<number | undefined>('books:pageCountMin', undefined)
+  const [pageCountMax, setPageCountMax] = useSessionState<number | undefined>('books:pageCountMax', undefined)
+
   // ── search ──
   const [searchInput, setSearchInput] = useSessionState('books:searchInput', '')
   const [alpha, setAlpha] = useSessionState('books:alpha', 0.5)
@@ -226,13 +230,16 @@ export function Books() {
     excludeBookTypeIds: blocked.blocked_book_type_ids,
     excludeToneIds: blocked.blocked_tone_ids,
     language: languageFilter,
+    pageCountMin,
+    pageCountMax,
   }
 
   const activeFilterCount =
     selectedGenres.length + selectedBookTypes.length + selectedTones.length +
     selectedCategories.length + (pacing != null ? 1 : 0) +
     excludedTropes.length + excludedArchetypes.length +
-    (shelfFilter ? 1 : 0) + (languageFilter ? 1 : 0)
+    (shelfFilter ? 1 : 0) + (languageFilter ? 1 : 0) +
+    (pageCountMin != null ? 1 : 0) + (pageCountMax != null ? 1 : 0)
 
   // ── data loading ──
   useEffect(() => {
@@ -255,6 +262,8 @@ export function Books() {
     sharedFilterParams.excludeArchetypeIds.join(),
     shelfFilter ?? '',
     languageFilter ?? '',
+    pageCountMin ?? '',
+    pageCountMax ?? '',
   ].join('|')
 
   // Reset to page 0 when filters change
@@ -329,6 +338,7 @@ export function Books() {
     setSelectedCategories([]); setPacing(undefined)
     setExcludedTropes([]); setExcludedArchetypes([])
     setShelfFilter(undefined); setLanguageFilter(undefined)
+    setPageCountMin(undefined); setPageCountMax(undefined)
     setHybridResults(null); setHybridError(null)
   }
 
@@ -544,6 +554,39 @@ export function Books() {
                   {opt.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Page count range */}
+          <div className="mt-4">
+            <p className="text-xs text-gray-500 mb-2">Page Count</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                placeholder="Min"
+                value={pageCountMin ?? ''}
+                onChange={e => setPageCountMin(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              <span className="text-xs text-gray-400">to</span>
+              <input
+                type="number"
+                min={1}
+                placeholder="Max"
+                value={pageCountMax ?? ''}
+                onChange={e => setPageCountMax(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              />
+              {(pageCountMin != null || pageCountMax != null) && (
+                <button
+                  type="button"
+                  onClick={() => { setPageCountMin(undefined); setPageCountMax(undefined) }}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
 
