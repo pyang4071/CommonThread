@@ -15,6 +15,7 @@ from app.schemas.trope import TropeRead
 class BookTropeRead(BaseModel):
     trope: TropeRead
     weight: float
+    is_crowd_promoted: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -22,6 +23,7 @@ class BookTropeRead(BaseModel):
 class CharacterDNARead(BaseModel):
     archetype: ArchetypeRead
     importance: int
+    is_crowd_promoted: bool = False
 
     model_config = {"from_attributes": True}
 

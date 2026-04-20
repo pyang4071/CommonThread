@@ -168,17 +168,18 @@ await db.commit()
 
 ## Progress Checklist
 
-- [ ] `config.py` — add `CROWD_PROMOTION_THRESHOLD`, move `TROPE_THRESHOLD`, add `REVIEW_EMBED_BATCH_SIZE`
-- [ ] `book.py` model — add `review_embed_count`
-- [ ] `character_dna.py` model — add `is_crowd_promoted`
-- [ ] Migration — `character_dna.is_crowd_promoted` + `books.review_embed_count`
-- [ ] `user_tags.py` — rewrite trope promotion (median, dominant check, ON CONFLICT, ratchet)
-- [ ] `user_tags.py` — add `_update_crowd_trope_weight` helper; wire into `remove_user_trope`
-- [ ] `user_tags.py` — add archetype promotion + importance-update helpers; wire in
-- [ ] `books.py` — remove local `TROPE_THRESHOLD`; import from `settings`
-- [ ] `admin.py` — update `embed_all` query for description backfill
-- [ ] `ratings.py` — add batch check before review re-embed
-- [ ] `embedding.py` — set `review_embed_count` after review embed
-- [ ] `.env.example` — add `CROWD_PROMOTION_THRESHOLD=3`
-- [ ] Backend schemas — confirm `is_crowd_promoted` in detail responses
-- [ ] Frontend `BookDetail.tsx` — crowd-tagged badge
+- [x] `config.py` — add `CROWD_PROMOTION_THRESHOLD`, move `TROPE_THRESHOLD`, add `REVIEW_EMBED_BATCH_SIZE`
+- [x] `book.py` model — add `review_embed_count`
+- [x] `character_dna.py` model — add `is_crowd_promoted`
+- [x] Migration `p0q1r2s3t4u5` — `character_dna.is_crowd_promoted` + `books.review_embed_count`
+- [x] `user_tags.py` — rewrite trope promotion (median, dominant check, ON CONFLICT, ratchet)
+- [x] `user_tags.py` — add `_update_crowd_trope_weight` helper; wire into `remove_user_trope`
+- [x] `user_tags.py` — add archetype promotion + importance-update helpers; wire in
+- [x] `books.py` — remove local `TROPE_THRESHOLD`; import from `settings`
+- [x] `admin.py` — update `embed_all` query for description backfill (decision F)
+- [x] `ratings.py` — batch check inside `_embed_reviews_in_background` (decision G)
+- [x] `embedding.py` — set `review_embed_count` after review embed
+- [x] `.env.example` — add `CROWD_PROMOTION_THRESHOLD=3`
+- [x] Backend schemas — `is_crowd_promoted` in `BookTropeRead` + `CharacterDNARead`
+- [x] Frontend `BookDetail.tsx` — teal crowd-tagged badge on promoted tropes/archetypes
+- [x] Tests — `test_crowdsourcing.py` rewritten for ratchet/median/dominant-anchor design

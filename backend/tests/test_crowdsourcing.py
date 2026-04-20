@@ -1,168 +1,132 @@
 """
-Tests for the crowdsourcing promotion/demotion mechanism (plan.md Step 6).
+Tests for the crowd promotion mechanism (Phase 3).
 
-Covers:
-  - promote_user_trope_to_canonical — below threshold → no promotion
-  - promote_user_trope_to_canonical — at threshold → promotes, sets is_crowd_promoted=True
-  - promote_user_trope_to_canonical — admin tag exists → no promotion (admin wins)
-  - promote_user_trope_to_canonical — crowd tag exists → updates weight
-  - demote_user_trope_if_needed — count still above threshold → no demotion
-  - demote_user_trope_if_needed — count drops below → removes crowd tag
-  - demote_user_trope_if_needed — count drops below threshold → clears genome when trope count < 3
-  - demote_user_trope_if_needed — admin tag → never demoted
+Covers _promote_or_update_trope:
+  - below user threshold → no promotion
+  - below weight threshold (median < 0.4) → no promotion
+  - no dominant anchor and median < 0.65 → blocked (decision B)
+  - no dominant anchor but median ≥ 0.65 → allowed (becomes anchor)
+  - dominant exists, median ≥ 0.4 → allowed (supporting trope)
+  - admin tag exists → no promotion (admin wins)
+  - crowd tag exists, weight unchanged → no commit
+  - crowd tag exists, weight changed → updates weight
+
+Covers _update_crowd_trope_weight:
+  - no canonical tag → no-op
+  - admin canonical tag → no-op
+  - weights unchanged → no commit
+  - weights changed → updates and returns True
+  - no remaining user tags → no-op (ratchet)
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch, call
-import uuid
+from unittest.mock import AsyncMock, MagicMock, patch
+from statistics import median
 
 from app.crud.user_tags import (
-    promote_user_trope_to_canonical,
-    demote_user_trope_if_needed,
-    MIN_USERS_FOR_PROMOTION,
-    MIN_AVG_WEIGHT_FOR_PROMOTION,
-    TROPE_THRESHOLD,
+    _promote_or_update_trope,
+    _update_crowd_trope_weight,
+    MIN_MEDIAN_WEIGHT,
+    DOMINANT_WEIGHT_THRESHOLD,
 )
 
 
-def _agg_result(user_count: int, avg_weight: float):
-    """Build a mock aggregate query result row."""
-    row = MagicMock()
-    row.user_count = user_count
-    row.avg_weight = avg_weight
+def _weights_result(weights: list[float]):
+    """Mock db.execute result for a scalars().all() weights query."""
     result = MagicMock()
-    result.one = MagicMock(return_value=row)
+    result.scalars.return_value.all.return_value = weights
     return result
 
 
-class TestPromoteUserTropeToCanonical:
+def _scalar_result(value):
+    """Mock db.execute result for a scalar_one_or_none() query."""
+    result = MagicMock()
+    result.scalar_one_or_none = MagicMock(return_value=value)
+    return result
+
+
+class TestPromoteOrUpdateTrope:
     @pytest.mark.asyncio
     async def test_no_promotion_below_user_threshold(self):
-        """Fewer than MIN_USERS_FOR_PROMOTION users → no promotion."""
+        """Fewer than CROWD_PROMOTION_THRESHOLD users → no promotion."""
         mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=None)  # no existing canonical tag
-        mock_db.execute = AsyncMock(
-            return_value=_agg_result(
-                user_count=MIN_USERS_FOR_PROMOTION - 1,
-                avg_weight=MIN_AVG_WEIGHT_FOR_PROMOTION + 0.1,
-            )
-        )
+        mock_db.get = AsyncMock(return_value=None)
+        mock_db.execute = AsyncMock(return_value=_weights_result([0.7, 0.8]))  # only 2
 
-        result = await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
+        with patch("app.crud.user_tags.pg_insert"):
+            result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
         assert result is False
-        mock_db.add.assert_not_called()
         mock_db.commit.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_no_promotion_below_weight_threshold(self):
-        """Enough users but avg_weight too low → no promotion."""
+        """Three users but median weight < MIN_MEDIAN_WEIGHT → no promotion."""
         mock_db = AsyncMock()
         mock_db.get = AsyncMock(return_value=None)
-        mock_db.execute = AsyncMock(
-            return_value=_agg_result(
-                user_count=MIN_USERS_FOR_PROMOTION,
-                avg_weight=MIN_AVG_WEIGHT_FOR_PROMOTION - 0.01,
-            )
-        )
+        # median of [0.1, 0.2, 0.3] = 0.2 < 0.4
+        mock_db.execute = AsyncMock(return_value=_weights_result([0.1, 0.2, 0.3]))
 
-        result = await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
+        result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
         assert result is False
-        mock_db.add.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_promotes_at_exact_threshold(self):
-        """Exactly at both thresholds → promotes."""
-        mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=None)
-        mock_db.execute = AsyncMock(
-            return_value=_agg_result(
-                user_count=MIN_USERS_FOR_PROMOTION,
-                avg_weight=MIN_AVG_WEIGHT_FOR_PROMOTION,
-            )
-        )
-
-        result = await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
-
-        assert result is True
-        mock_db.add.assert_called_once()
-        mock_db.commit.assert_called_once()
-
-        # Verify the added BookTrope has is_crowd_promoted=True
-        added_obj = mock_db.add.call_args[0][0]
-        assert added_obj.is_crowd_promoted is True
-        assert added_obj.book_id == 1
-        assert added_obj.trope_id == 10
-
-    @pytest.mark.asyncio
-    async def test_admin_tag_blocks_promotion(self):
-        """If an admin tag (is_crowd_promoted=False) exists → no promotion."""
-        from app.models.book_trope import BookTrope
-        admin_tag = MagicMock(spec=BookTrope)
-        admin_tag.is_crowd_promoted = False
-
-        mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=admin_tag)
-
-        result = await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
-
-        assert result is False
-        # execute (agg query) should not even be called
-        mock_db.execute.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_updates_existing_crowd_tag_weight(self):
-        """If a crowd-promoted tag already exists, update its weight."""
-        from app.models.book_trope import BookTrope
-        existing_crowd_tag = MagicMock(spec=BookTrope)
-        existing_crowd_tag.is_crowd_promoted = True
-        existing_crowd_tag.weight = 0.5
-
-        mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=existing_crowd_tag)
-        mock_db.execute = AsyncMock(
-            return_value=_agg_result(user_count=5, avg_weight=0.75)
-        )
-
-        result = await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
-
-        assert result is True
-        # Weight should be updated, not a new row added
-        assert existing_crowd_tag.weight == round(0.75, 4)
-        mock_db.add.assert_not_called()  # update in place, no new add
-        mock_db.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_weight_rounded_to_4_decimals(self):
-        """avg_weight is rounded to 4 decimal places."""
-        mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=None)
-        mock_db.execute = AsyncMock(
-            return_value=_agg_result(user_count=5, avg_weight=0.666667)
-        )
-
-        await promote_user_trope_to_canonical(mock_db, book_id=1, trope_id=10)
-
-        added = mock_db.add.call_args[0][0]
-        assert added.weight == 0.6667
-
-
-class TestDemoteUserTropeIfNeeded:
-    @pytest.mark.asyncio
-    async def test_no_demotion_when_no_canonical_tag(self):
-        """No canonical tag → nothing to demote."""
-        mock_db = AsyncMock()
-        mock_db.get = AsyncMock(return_value=None)
-
-        await demote_user_trope_if_needed(mock_db, book_id=1, trope_id=10)
-
-        mock_db.delete.assert_not_called()
         mock_db.commit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_demotion_for_admin_tag(self):
-        """Admin-set tag (is_crowd_promoted=False) is never auto-removed."""
+    async def test_blocked_no_dominant_anchor_median_too_low(self):
+        """No dominant canonical trope and median < 0.65 → blocked (decision B)."""
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=None)
+        # median of [0.45, 0.5, 0.55] = 0.5 — above 0.4 but below 0.65
+        execute_calls = [
+            _weights_result([0.45, 0.5, 0.55]),  # user weights
+            _scalar_result(None),                 # dominant check → no dominant
+        ]
+        mock_db.execute = AsyncMock(side_effect=execute_calls)
+
+        result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
+
+        assert result is False
+        mock_db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_allowed_when_median_is_dominant_anchor(self):
+        """No existing dominant but median ≥ 0.65 → promoted as first dominant anchor."""
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=None)
+        # median of [0.65, 0.7, 0.85] = 0.7 ≥ 0.65
+        execute_calls = [
+            _weights_result([0.65, 0.7, 0.85]),  # user weights
+            _scalar_result(None),                 # dominant check → no dominant
+            MagicMock(),                          # pg_insert execute result
+        ]
+        mock_db.execute = AsyncMock(side_effect=execute_calls)
+
+        result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
+
+        assert result is True
+        mock_db.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_allowed_supporting_trope_when_dominant_exists(self):
+        """Dominant canonical trope exists → supporting trope (median 0.5) allowed."""
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=None)
+        execute_calls = [
+            _weights_result([0.45, 0.5, 0.55]),  # user weights → median 0.5
+            _scalar_result(1),                    # dominant check → has dominant
+            MagicMock(),                          # pg_insert execute result
+        ]
+        mock_db.execute = AsyncMock(side_effect=execute_calls)
+
+        result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
+
+        assert result is True
+        mock_db.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_admin_tag_blocks_promotion(self):
+        """Admin-set tag (is_crowd_promoted=False) → no promotion, no query."""
         from app.models.book_trope import BookTrope
         admin_tag = MagicMock(spec=BookTrope)
         admin_tag.is_crowd_promoted = False
@@ -170,102 +134,127 @@ class TestDemoteUserTropeIfNeeded:
         mock_db = AsyncMock()
         mock_db.get = AsyncMock(return_value=admin_tag)
 
-        await demote_user_trope_if_needed(mock_db, book_id=1, trope_id=10)
+        result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
-        mock_db.delete.assert_not_called()
+        assert result is False
+        mock_db.execute.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_no_demotion_when_count_still_above_threshold(self):
-        """Count still ≥ MIN_USERS_FOR_PROMOTION → keep the canonical tag."""
+    async def test_ratchet_updates_weight_when_below_threshold(self):
+        """Crowd row exists, count drops below threshold → update weight (ratchet, no delete)."""
         from app.models.book_trope import BookTrope
         crowd_tag = MagicMock(spec=BookTrope)
         crowd_tag.is_crowd_promoted = True
-
-        # Count query returns >= threshold
-        count_result = MagicMock()
-        count_result.scalar_one = MagicMock(return_value=MIN_USERS_FOR_PROMOTION)
+        crowd_tag.weight = 0.7
 
         mock_db = AsyncMock()
         mock_db.get = AsyncMock(return_value=crowd_tag)
-        mock_db.execute = AsyncMock(return_value=count_result)
+        # Only 2 remaining users — below threshold of 3; median = 0.6
+        mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.6, 0.65]))
+        # Force below-threshold path by patching settings
+        with patch("app.crud.user_tags.settings") as mock_settings:
+            mock_settings.CROWD_PROMOTION_THRESHOLD = 5  # set high so 3 < threshold
+            mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.65]))  # 2 users
+            result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
-        await demote_user_trope_if_needed(mock_db, book_id=1, trope_id=10)
-
-        mock_db.delete.assert_not_called()
+        assert result is True  # weight changed
+        assert crowd_tag.weight == round(median([0.55, 0.65]), 4)
+        mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_demotes_crowd_tag_when_count_drops_below_threshold(self):
-        """Count drops below MIN_USERS_FOR_PROMOTION → delete the crowd-promoted tag."""
+    async def test_no_commit_when_weight_unchanged(self):
+        """Crowd row exists, new median equals existing weight → no commit."""
         from app.models.book_trope import BookTrope
         crowd_tag = MagicMock(spec=BookTrope)
         crowd_tag.is_crowd_promoted = True
-
-        call_count = 0
-
-        async def mock_execute(stmt):
-            nonlocal call_count
-            call_count += 1
-            result = MagicMock()
-            if call_count == 1:
-                # user count query — below threshold
-                result.scalar_one = MagicMock(return_value=MIN_USERS_FOR_PROMOTION - 1)
-            else:
-                # canonical trope count after deletion — still above TROPE_THRESHOLD
-                result.scalar_one = MagicMock(return_value=TROPE_THRESHOLD)
-            return result
+        crowd_tag.weight = round(median([0.55, 0.65]), 4)
 
         mock_db = AsyncMock()
         mock_db.get = AsyncMock(return_value=crowd_tag)
-        mock_db.execute = mock_execute
-        mock_db.flush = AsyncMock()
 
-        await demote_user_trope_if_needed(mock_db, book_id=1, trope_id=10)
+        with patch("app.crud.user_tags.settings") as mock_settings:
+            mock_settings.CROWD_PROMOTION_THRESHOLD = 5
+            mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.65]))
+            result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
-        mock_db.delete.assert_called_once_with(crowd_tag)
+        assert result is False
+        mock_db.commit.assert_not_called()
+
+
+class TestUpdateCrowdTropeWeight:
+    @pytest.mark.asyncio
+    async def test_no_canonical_tag_is_noop(self):
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=None)
+
+        result = await _update_crowd_trope_weight(mock_db, book_id=1, trope_id=10)
+
+        assert result is False
+        mock_db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_admin_canonical_is_noop(self):
+        from app.models.book_trope import BookTrope
+        admin_tag = MagicMock(spec=BookTrope)
+        admin_tag.is_crowd_promoted = False
+
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=admin_tag)
+
+        result = await _update_crowd_trope_weight(mock_db, book_id=1, trope_id=10)
+
+        assert result is False
+        mock_db.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_remaining_users_is_noop(self):
+        """All user tags removed — ratchet keeps row, weight unchanged."""
+        from app.models.book_trope import BookTrope
+        crowd_tag = MagicMock(spec=BookTrope)
+        crowd_tag.is_crowd_promoted = True
+        crowd_tag.weight = 0.7
+
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=crowd_tag)
+        mock_db.execute = AsyncMock(return_value=_weights_result([]))
+
+        result = await _update_crowd_trope_weight(mock_db, book_id=1, trope_id=10)
+
+        assert result is False
+        mock_db.commit.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_weight_updated_when_changed(self):
+        """Remaining users have different median → weight updated."""
+        from app.models.book_trope import BookTrope
+        crowd_tag = MagicMock(spec=BookTrope)
+        crowd_tag.is_crowd_promoted = True
+        crowd_tag.weight = 0.8
+
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=crowd_tag)
+        mock_db.execute = AsyncMock(return_value=_weights_result([0.6, 0.65, 0.7]))
+
+        result = await _update_crowd_trope_weight(mock_db, book_id=1, trope_id=10)
+
+        assert result is True
+        assert crowd_tag.weight == round(median([0.6, 0.65, 0.7]), 4)
         mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_clears_genome_when_trope_count_drops_below_threshold(self):
-        """
-        After demotion, if canonical trope count < TROPE_THRESHOLD,
-        genome_embedding must be cleared and embedding_status reset to 'pending'.
-        """
+    async def test_no_commit_when_weight_unchanged(self):
+        """Median of remaining users equals current weight → no commit."""
         from app.models.book_trope import BookTrope
-        from app.models.book import Book
-
+        existing_median = round(median([0.6, 0.65, 0.7]), 4)
         crowd_tag = MagicMock(spec=BookTrope)
         crowd_tag.is_crowd_promoted = True
-
-        mock_book = MagicMock(spec=Book)
-        mock_book.genome_embedding = [0.1] * 384
-        mock_book.embedding_status = "done"
-
-        call_count = 0
-
-        async def mock_execute(stmt):
-            nonlocal call_count
-            call_count += 1
-            result = MagicMock()
-            if call_count == 1:
-                # user count — below promotion threshold
-                result.scalar_one = MagicMock(return_value=MIN_USERS_FOR_PROMOTION - 1)
-            else:
-                # canonical trope count — below TROPE_THRESHOLD after deletion
-                result.scalar_one = MagicMock(return_value=TROPE_THRESHOLD - 1)
-            return result
-
-        async def mock_get(model, pk):
-            if model.__name__ == "BookTrope" or str(model) == str(BookTrope):
-                return crowd_tag
-            return mock_book
+        crowd_tag.weight = existing_median
 
         mock_db = AsyncMock()
-        mock_db.get = mock_get
-        mock_db.execute = mock_execute
-        mock_db.flush = AsyncMock()
+        mock_db.get = AsyncMock(return_value=crowd_tag)
+        mock_db.execute = AsyncMock(return_value=_weights_result([0.6, 0.65, 0.7]))
 
-        await demote_user_trope_if_needed(mock_db, book_id=1, trope_id=10)
+        result = await _update_crowd_trope_weight(mock_db, book_id=1, trope_id=10)
 
-        assert mock_book.genome_embedding is None
-        assert mock_book.embedding_status == "pending"
-        mock_db.commit.assert_called_once()
+        assert result is False
+        mock_db.commit.assert_not_called()

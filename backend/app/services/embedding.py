@@ -250,6 +250,7 @@ async def embed_reviews_for_book(book_id: int, db: AsyncSession) -> Book | None:
         return None
 
     book.review_embedding = await _run(combined, _get_description_model)
+    book.review_embed_count = len(texts)
     await db.commit()
     await db.refresh(book)
     return book

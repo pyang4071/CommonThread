@@ -18,6 +18,7 @@ class CharacterDNA(Base):
         ForeignKey("archetypes.archetype_id"), primary_key=True
     )
     importance: Mapped[int]
+    is_crowd_promoted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
     book: Mapped["Book"] = relationship(back_populates="character_dna")
     archetype: Mapped["Archetype"] = relationship(back_populates="character_dna")
