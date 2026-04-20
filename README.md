@@ -21,15 +21,15 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Area | Status |
 |---|---|
 | Backend API | Feature-complete — all routes functional |
-| Database schema | Stable (25 migrations applied) |
-| Embedding pipeline | Working — three-stream BGE via FastEmbed; description always embedded, genome gated at ≥ 3 tropes; review embed batched at every 5 new reviews |
+| Database schema | Stable (26 migrations applied) |
+| Embedding pipeline | Working — three-stream BGE via FastEmbed; description always embedded, genome gated at ≥ 3 tropes; review embed batched at every 5 new reviews; review stream now blended into recommendation scoring |
 | Vibe/semantic search | Working — alpha-blended genome + description (`GET /search`) |
 | Hybrid search | Working — RRF combining PostgreSQL full-text + BGE description cosine (`POST /search/hybrid`) |
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed, public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language filters, crowd-tagged badges |
-| Admin dashboard | Working — embed-all (incl. description backfill), stall detection + crash recovery, fetch-covers, vector coverage panel with genome-eligible stat |
+| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language/page-range filters, crowd-tagged badges |
+| Admin dashboard | Working — embed-all (incl. description backfill), stall detection + crash recovery, fetch-covers, vector coverage panel with genome-eligible stat, embedding model health status panel |
 | Crowd promotion | Working — user trope/archetype tags promoted to canonical at N≥3 users; median weight; dominant-anchor rule; ratchet (no auto-demotion); archetypes supported |
 | Auth | Working via Supabase JWT; AuthContext race condition fixed |
 | E2E Testing | **57 tests** — Playwright across public/user/admin projects; 56 pass, 1 skip (all green) |
@@ -238,7 +238,8 @@ books
   search_vector (tsvector GENERATED) ← full-text index for hybrid search
   genome_embedding (vector 384)      ← structural/trope embedding (≥3 tropes required)
   description_embedding (vector 768) ← prose embedding (all books)
-  review_embedding (vector 768)      ← aggregated review embedding
+  review_embedding (vector 768)      ← aggregated review embedding (blended into recs)
+  review_embed_count (int)           ← review count at last embed (batch gate: re-embed every +5)
   embedding_status ('pending'|'done'|'failed')  ← 'done' = description embedded
   author_id (FK → authors)
   series_id (FK → series, nullable)
@@ -252,7 +253,7 @@ genres            genre_id, name, description
 book_types        book_type_id, name, description
 tones             tone_id, name
 series            series_id, name, description
-app_users         user_id (UUID), name, email, is_admin, onboarding_completed
+app_users         user_id (UUID), name, email, is_admin
                   preferences (JSONB) — { blocked_genre_ids, blocked_book_type_ids,
                                           blocked_tone_ids, profile_public }
 ```
@@ -260,8 +261,8 @@ app_users         user_id (UUID), name, email, is_admin, onboarding_completed
 ### Association Tables
 
 ```
-book_tropes (book_id, trope_id, weight 0.0-1.0)
-character_dna (book_id, archetype_id, importance 1-10)
+book_tropes (book_id, trope_id, weight 0.0-1.0, is_crowd_promoted bool)
+character_dna (book_id, archetype_id, importance 1-10, is_crowd_promoted bool)
 book_genres (book_id, genre_id)
 book_book_types (book_id, book_type_id)
 book_tones (book_id, tone_id)
@@ -390,7 +391,8 @@ All endpoints returning user-specific data require `Authorization: Bearer <supab
 |---|---|---|---|
 | GET | `/admin/embed-status` | Admin | Counts by embedding status (done/pending/failed) |
 | POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding; crashes mark remaining books failed |
-| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither}` embedding stream breakdown |
+| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither, genome_eligible}` embedding stream breakdown |
+| GET | `/health` | — | Model loading status `{status, models: {genome, description, review}}` |
 | POST | `/admin/fetch-covers` | Admin | Batch-fetch missing cover URLs |
 
 ---
@@ -413,8 +415,10 @@ All endpoints returning user-specific data require `Authorization: Bearer <supab
 - Stored in `books.description_embedding`; `NULL` if no description
 
 **Review stream** (768-dim, `BAAI/bge-base-en-v1.5`):
-- Encodes aggregated user review text
-- Stored in `books.review_embedding`; `NULL` until reviews are embedded
+- Encodes aggregated user review text (all non-empty `review_text` values joined with ` | `)
+- Re-embedded in batches: only when review count grows by ≥ `REVIEW_EMBED_BATCH_SIZE` (5) since last embed
+- Blended into recommendation scoring: 20% weight in Similar Books, 15% in For You (when available; books without review embeddings are unaffected)
+- Stored in `books.review_embedding`; `NULL` until first batch threshold is met
 
 ### Search Blending
 
@@ -431,10 +435,12 @@ score = alpha * genome_score + (1 - alpha) * description_score
 
 1. Collect user's books: ratings ≥4 + all shelf entries
 2. Aggregate their tropes/archetypes (avg weight / avg importance)
-3. Build a genome text from aggregated preferences
-4. Embed in genome space → cosine search
-5. Exclude books already rated or on shelf
-6. Return with explanation (shared tropes/archetypes)
+3. Build a genome text from aggregated preferences; also mean-pool review embeddings for liked books
+4. Embed in genome space → cosine search for candidates
+5. Diversity re-rank + series order gate
+6. Re-score with review stream (15% weight) when candidate has a review embedding
+7. Blend in collaborative filtering (up to 1/3 of results from taste-similar users)
+8. Exclude books already rated or on shelf; return with explanation (shared tropes/archetypes)
 
 ### Tagging Threshold & Embedding Lifecycle
 
@@ -449,7 +455,7 @@ score = alpha * genome_score + (1 - alpha) * description_score
 Key rules:
 - Description embedding always runs; genome additionally requires ≥ 3 tropes.
 - If a trope is removed and count drops below 3, only `genome_embedding` is cleared; `embedding_status` stays `done`.
-- Admin **Embed All** queues all books with `status != "done"` — no trope-count gate.
+- Admin **Embed All** queues books with `status != "done"` **or** `description IS NOT NULL AND description_embedding IS NULL` — catches books where description was added after the last embed.
 - Background task crash recovery: if the batch crashes, remaining `pending` books are marked `failed` via bulk UPDATE.
 
 Each book tracks `embedding_status`:
@@ -748,3 +754,5 @@ Embedding and cover-fetching run as FastAPI `BackgroundTask` objects — they ex
 | l6m7n8o9p0q1 | **Add user_follows table** (follower_id, followee_id, created_at; composite PK + indexes) |
 | n8o9p0q1r2s3 | **Add search_vector tsvector GENERATED column** to books (lexical full-text for hybrid search) |
 | o9p0q1r2s3t4 | **Add page_count, language columns** to books; add review_embedding vector(768) |
+| p0q1r2s3t4u5 | **Phase 3 — crowd promotion**: add `character_dna.is_crowd_promoted`, `books.review_embed_count` |
+| q1r2s3t4u5v6 | **Drop `app_users.onboarding_completed`** (unused column) |
