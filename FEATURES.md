@@ -101,7 +101,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Keyword search by title/author
 - **Vibe (semantic) search**: text query, alpha slider (`More tropes & archetypes` ↔ `More vibe & prose`), 4 example-query chips
 - **Hybrid search**: lexical full-text + semantic description via RRF; accessible from the search bar when toggled to hybrid mode
-- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, page count range, language
+- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, language, page count range (min/max number inputs with clear button)
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
 - Card grid results with cover, title, author, pub year, avg rating, ReadingStatusButton
@@ -162,6 +162,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Embed All button — kicks off background batch; status auto-refreshes every 4 s until `pending === 0`; "Refreshing…" badge while polling; stall detection stops polling after 5 consecutive polls with no change and shows a warning
 - **Vector Coverage panel** — stacked bar + stat cards showing how many books have: (1) genome + description, (2) description only, (3) neither; auto-refreshes after embedding completes
 - Fetch Covers button — queues background cover fetch for all books without a cover URL
+- **Embedding Models panel** — shows genome / description / review model loading status (ready/loading) fetched from `GET /health` on page load
 
 #### AddBook / EditBook
 - Metadata: title (required), author (autocomplete from existing authors), ISBN (required), publication date (required), description (optional), series name + position (optional)
@@ -299,7 +300,7 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/health` | — | `{status: "ok", models: {genome: "ready"\|"loading", description: "ready"\|"loading", review: "ready"\|"loading"}}` |
+| GET | `/health` | — | `{status: "ok", models: {genome: "ready"\|"loading", description: "ready"\|"loading", review: "ready"\|"loading"}}` — polled by Admin page on load |
 
 ---
 
@@ -314,7 +315,6 @@ Base path: `/api/v1`
 | name | VARCHAR | Nullable |
 | email | VARCHAR | Unique |
 | is_admin | BOOLEAN | Default false |
-| onboarding_completed | BOOLEAN | Default false |
 | preferences | JSONB | `{blocked_genre_ids[], blocked_book_type_ids[], blocked_tone_ids[], profile_public}` |
 | created_at | TIMESTAMP | Auto |
 
@@ -528,6 +528,7 @@ Both FastEmbed models are loaded at application startup in the FastAPI lifespan 
 | **Embed Status** | Shows total / done / pending / failed book counts with percentage bars |
 | **Embed All** | Queues all `pending` and `failed` books for background embedding. Frontend polls status every 4 s until `pending === 0`. Stall detection: if pending count is unchanged for 5 consecutive polls, polling stops and a warning is shown. Background crash recovery: if the batch task crashes, remaining `pending` books are marked `failed` via bulk UPDATE. |
 | **Vector Coverage** | Stacked bar + stat cards showing books with genome+description, description-only, and neither embedding, plus a **genome-eligible** count (books with ≥ 3 canonical tropes). Shows what % of eligible books are actually embedded and how many are awaiting genome. Auto-refreshes when embedding completes. |
+| **Embedding Models** | Three status cards (genome / description / review) fetched from `GET /health` showing `ready` or `loading…` for each model. Shown only once data is available. |
 | **Fetch Covers** | Queues background cover fetch for every book where `cover_url IS NULL`. |
 | **Master data CRUD** | Create / search / delete Genres, Book Types, and Tones from dedicated admin pages. |
 | **Add / Edit Book** | Full book creation and editing UI including trope/archetype/genre/type/tone tagging with weight and importance tiers. |
