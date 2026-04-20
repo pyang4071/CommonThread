@@ -1,5 +1,61 @@
 # Book Tagging Prompt
 
+## Current Status — 2026-04-18
+
+| Metric | Count |
+|---|---|
+| Total scraped books (JSONL files) | 10,020 |
+| Tagged and **imported into DB** | 648 |
+| Skipped (unknown / no data) | 152 |
+| **Remaining to process** | **9,220** |
+
+The 648 tagged books are live in the database with tropes, archetypes, genres, tones,
+book types, pacing, and genome+description embeddings applied.
+
+`tagging_progress.json` holds the checkpoint. On resume, read it and skip any
+`ol_work_key` already in `completed_ol_work_keys` — do **not** re-tag books that
+are already done.
+
+---
+
+## After each batch: import to DB
+
+Once you have appended a batch to `tagged_books.json`, run the import script to push
+the new entries into the database:
+
+```bash
+cd backend
+uv run python scripts/import_tagged_books.py --no-embed
+```
+
+Then trigger embedding via the Admin page → **Embed pending & failed books**, or run:
+
+```bash
+uv run python -c "
+import asyncio, sys; sys.path.insert(0, '.')
+from sqlalchemy import select
+from app.database.engine import AsyncSessionLocal
+from app.models.book import Book
+from app.services.embedding import embed_books_batch
+
+async def main():
+    async with AsyncSessionLocal() as db:
+        ids = (await db.execute(
+            select(Book.book_id).where(Book.embedding_status == 'pending')
+        )).scalars().all()
+        print(f'Embedding {len(ids)} books...')
+        result = await embed_books_batch(list(ids), db)
+        done = sum(1 for v in result.values() if v == 'done')
+        print(f'Done: {done}/{len(ids)}')
+
+asyncio.run(main())
+"
+```
+
+The import script is idempotent — re-running it on already-imported books is safe.
+
+---
+
 ## Goal
 
 Read the scraped book data from `backend/webscraper/output/` and produce a single
@@ -130,8 +186,11 @@ guess. Write the skipped book to a separate file:
 
 ## Checkpoints
 
-Process books in batches of 50. After each batch, append completed entries to
-`tagged_books.json` and write a checkpoint file:
+Process books in batches of 50. After each batch of 50:
+
+1. **Append** completed entries to `backend/webscraper/output/tagged_books.json`
+   (never overwrite — always append to preserve previously tagged books).
+2. **Update** the checkpoint file:
 
 `backend/webscraper/output/tagging_progress.json`
 
@@ -144,6 +203,10 @@ Process books in batches of 50. After each batch, append completed entries to
 }
 ```
 
+3. **Run the import script** to push the batch to the database (see "After each batch" above).
+
+**After every 200 books (4 batches of 50), stop and wait for the user before continuing.**
+
 On resume, read `tagging_progress.json` and skip any `ol_work_key` already in
-`completed_ol_work_keys`. Append new results to the existing `tagged_books.json`
-rather than overwriting it.
+`completed_ol_work_keys`. The checkpoint currently has **1250 entries** (1047 tagged +
+203 skipped as of 2026-04-19) — start from book 1251.

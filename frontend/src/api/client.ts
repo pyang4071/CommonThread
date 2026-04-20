@@ -297,7 +297,7 @@ export const api = {
     },
     authors: () => get<Author[]>('/books/authors'),
     get: (id: number) => get<BookDetail>(`/books/${id}`),
-    similar: (id: number, limit = 5) => get<SimilarBook[]>(`/recommendations/${id}/similar?limit=${limit}`),
+    similar: (id: number, limit = 6) => get<SimilarBook[]>(`/recommendations/${id}/similar?limit=${limit}`),
     attachTrope: (bookId: number, tropeId: number, weight: number) =>
       post<void>(`/books/${bookId}/tropes`, { trope_id: tropeId, weight }),
     attachArchetype: (bookId: number, archetypeId: number, importance: number) =>
@@ -450,6 +450,11 @@ export const api = {
       authedFetch('GET', '/admin/embed-status', token).then(r => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
         return r.json() as Promise<{ total: number; done: number; pending: number; failed: number }>
+      }),
+    vectorCoverage: (token: string) =>
+      authedFetch('GET', '/admin/vector-coverage', token).then(r => {
+        if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+        return r.json() as Promise<{ total: number; both: number; description_only: number; neither: number; genome_eligible: number }>
       }),
     embedAll: (token: string) =>
       authedFetch('POST', '/admin/embed-all', token, {}).then(r => {

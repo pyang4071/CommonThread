@@ -357,7 +357,7 @@ export function BookDetail() {
             <span>Published {new Date(book.publication_date).getFullYear()}</span>
           )}
           {book.isbn && <span>ISBN {book.isbn}</span>}
-          {book.embedding_status !== 'done' && book.book_tropes.length < 3 && (
+          {book.book_tropes.length < 3 && (
             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
               {book.book_tropes.length}/3 tropes — needs {3 - book.book_tropes.length} more for recommendations
             </span>
@@ -756,16 +756,33 @@ export function BookDetail() {
       {similarLoaded && (
         <div>
           <h2 className="text-lg font-semibold text-gray-800 mb-1">Books Like This</h2>
-          <p className="text-xs text-gray-400 mb-4">Matched by tropes, archetypes &amp; genres</p>
+          <p className="text-xs text-gray-400 mb-4">Matched by tropes, archetypes &amp; genres — or by description when tropes are unavailable</p>
           {similar.length === 0 ? (
             <div className="bg-white border border-dashed border-gray-200 rounded-lg p-6 text-center space-y-1">
-              <p className="text-sm text-gray-400">No similar books found yet — recommendations will appear once this book has been indexed.</p>
-              {isAdmin && (
-                <p className="text-xs text-gray-400">
-                  Visit the{' '}
-                  <Link to="/admin" className="text-indigo-500 hover:underline">Admin panel</Link>
-                  {' '}to index pending books.
+              {book.embedding_status !== 'done' ? (
+                <>
+                  <p className="text-sm text-gray-400">No similar books found yet — recommendations will appear once this book has been indexed.</p>
+                  {isAdmin && (
+                    <p className="text-xs text-gray-400">
+                      Visit the{' '}
+                      <Link to="/admin" className="text-indigo-500 hover:underline">Admin panel</Link>
+                      {' '}to index pending books.
+                    </p>
+                  )}
+                </>
+              ) : !book.description && book.book_tropes.length < 3 ? (
+                <>
+                  <p className="text-sm text-gray-400">Missing both signals needed for similarity matching.</p>
+                  <p className="text-xs text-gray-400">
+                    Add a <strong>description</strong> for prose-based matching, and at least <strong>3 tropes</strong> for structural matching.
+                  </p>
+                </>
+              ) : book.book_tropes.length < 3 ? (
+                <p className="text-sm text-gray-400">
+                  Description matching is active but found no results. Add {3 - book.book_tropes.length} more trope{3 - book.book_tropes.length !== 1 ? 's' : ''} to unlock structural matching.
                 </p>
+              ) : (
+                <p className="text-sm text-gray-400">No similar books found — not enough shared signal with other books in the database.</p>
               )}
             </div>
           ) : (

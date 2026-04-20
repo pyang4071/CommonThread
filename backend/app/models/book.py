@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import ForeignKey, Index, func
+from sqlalchemy import Computed, ForeignKey, Index, func
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,7 +36,16 @@ class Book(Base):
     cover_url: Mapped[str | None] = mapped_column(nullable=True)
     page_count: Mapped[int | None] = mapped_column(nullable=True)
     language: Mapped[str | None] = mapped_column(nullable=True)
-    search_vector: Mapped[str | None] = mapped_column(TSVECTOR, nullable=True, deferred=True)
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+            "setweight(to_tsvector('english', coalesce(description, '')), 'C')",
+            persisted=True,
+        ),
+        nullable=True,
+        deferred=True,
+    )
     genome_embedding: Mapped[list[float] | None] = mapped_column(Vector(384), nullable=True)
     description_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     review_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)

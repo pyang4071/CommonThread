@@ -1,6 +1,6 @@
 # CommonThread
 
-A book recommendation engine powered by tropes and character archetypes. CommonThread uses a dual-stream semantic embedding approach to match readers with books based on structural literary elements (tropes, archetypes, genres) and descriptive prose alike.
+A book recommendation engine powered by tropes and character archetypes. CommonThread uses a three-stream semantic embedding approach to match readers with books based on structural literary elements (tropes, archetypes, genres), descriptive prose, and user reviews — with hybrid lexical+semantic search for broad discovery.
 
 ---
 
@@ -10,7 +10,8 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 
 - **"More like this"** similarity based on shared story structure
 - **Personalized recommendations** derived from a user's rating/shelf history
-- **Semantic search** that understands "cozy mystery with a slow-burn romance" as a query
+- **Semantic vibe search** that understands "cozy mystery with a slow-burn romance" as a query
+- **Hybrid search** combining full-text keyword matching with semantic description similarity via Reciprocal Rank Fusion
 - **User tagging** where readers contribute their own trope/archetype annotations
 
 ---
@@ -20,19 +21,20 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Area | Status |
 |---|---|
 | Backend API | Feature-complete — all routes functional |
-| Database schema | Stable (21 migrations applied) |
-| Embedding pipeline | Working — dual-stream BGE via FastEmbed; threshold-gated (≥ 3 tropes) |
-| Semantic search | Working — alpha-blended genome + description |
+| Database schema | Stable (23 migrations applied) |
+| Embedding pipeline | Working — three-stream BGE via FastEmbed; description always embedded, genome gated at ≥ 3 tropes |
+| Vibe/semantic search | Working — alpha-blended genome + description (`GET /search`) |
+| Hybrid search | Working — RRF combining PostgreSQL full-text + BGE description cosine (`POST /search/hybrid`) |
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed, public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes |
-| Admin dashboard | Working — embed-all, fetch-covers, status |
+| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language filters |
+| Admin dashboard | Working — embed-all with stall detection + crash recovery, fetch-covers, vector coverage panel |
 | Auth | Working via Supabase JWT; AuthContext race condition fixed |
 | E2E Testing | **57 tests** — Playwright across public/user/admin projects; 56 pass, 1 skip (all green) |
 | Unit Testing | Minimal — pytest scaffolded, not comprehensive |
 | Deployment | Docker Compose config added (`docker-compose.yml`) |
-| Data ingestion | **`backend/webscraper/`** — Open Library API scraper; 500 books × 20 subjects → JSONL |
+| Data ingestion | **`backend/webscraper/`** — Open Library scraper (10,020 books scraped); `import_tagged_books.py` — tagged books import; **648 books tagged and live** |
 
 ### In-progress / Pending
 - `embedding_jobs` and `recommendation_events` tables were dropped in the latest migration (j4k5l6m7n8o9) — they were replaced by the `embedding_status` column directly on the `books` table
@@ -229,10 +231,14 @@ books
   title, isbn (unique), publication_date
   description (text, nullable)
   pacing (int 1-5, nullable)
+  page_count (int, nullable)
+  language (varchar, nullable)
   cover_url (nullable)
-  genome_embedding (vector 384)     ← structural/trope embedding
-  description_embedding (vector 768) ← prose embedding
-  embedding_status ('pending'|'done'|'failed')
+  search_vector (tsvector GENERATED) ← full-text index for hybrid search
+  genome_embedding (vector 384)      ← structural/trope embedding (≥3 tropes required)
+  description_embedding (vector 768) ← prose embedding (all books)
+  review_embedding (vector 768)      ← aggregated review embedding
+  embedding_status ('pending'|'done'|'failed')  ← 'done' = description embedded
   author_id (FK → authors)
   series_id (FK → series, nullable)
   series_position (nullable)
@@ -342,7 +348,8 @@ All endpoints returning user-specific data require `Authorization: Bearer <supab
 ### Search — `/search`
 | Method | Path | Description |
 |---|---|---|
-| GET | `/search?q=...&limit=10&alpha=0.7` | Semantic search. `alpha` (0.0-1.0): 1.0 = pure genome (structural), 0.0 = pure description (vibe). Supports same filters as `/books`. |
+| GET | `/search?q=...&limit=10&alpha=0.7` | Vibe/semantic search. `alpha` (0.0-1.0): 1.0 = pure genome (structural), 0.0 = pure description (vibe). Requires genome embedding. Supports same filters as `/books`. |
+| POST | `/search/hybrid` | Hybrid search via Reciprocal Rank Fusion combining PostgreSQL full-text (lexical) and BGE-base description semantic similarity. Body: `{q, top_n, alpha, min_score, ...filters}`. Works for all books. Returns `{book, score, match_type, lex_rank, sem_rank}`. |
 
 ### Recommendations — `/recommendations`
 | Method | Path | Auth | Description |
@@ -381,25 +388,32 @@ All endpoints returning user-specific data require `Authorization: Bearer <supab
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/admin/embed-status` | Admin | Counts by embedding status (done/pending/failed) |
-| POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding |
+| POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding; crashes mark remaining books failed |
+| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither}` embedding stream breakdown |
 | POST | `/admin/fetch-covers` | Admin | Batch-fetch missing cover URLs |
 
 ---
 
 ## Embedding Architecture
 
-### Two Embedding Streams
+### Three Embedding Streams
 
 **Genome stream** (384-dim, `BAAI/bge-small-en-v1.5`):
 - Encodes structured literary metadata into a single text string
 - Includes: tropes with strength labels ("dominant"≥0.8, "strong"≥0.6, "moderate"≥0.4, "subtle"<0.4), archetypes with importance labels, genres, tones, pacing, title, author
 - Deliberately **excludes** free-text description to keep signal clean
+- Only computed when book has ≥ 3 canonical tropes (`TROPE_THRESHOLD = 3`)
 - Stored in `books.genome_embedding`
 
 **Description stream** (768-dim, `BAAI/bge-base-en-v1.5`):
 - Encodes only the free-text book description
 - Captures narrative vibe and prose semantics
+- Embedded for **all books** regardless of trope count; sets `embedding_status = "done"`
 - Stored in `books.description_embedding`; `NULL` if no description
+
+**Review stream** (768-dim, `BAAI/bge-base-en-v1.5`):
+- Encodes aggregated user review text
+- Stored in `books.review_embedding`; `NULL` until reviews are embedded
 
 ### Search Blending
 
@@ -423,26 +437,24 @@ score = alpha * genome_score + (1 - alpha) * description_score
 
 ### Tagging Threshold & Embedding Lifecycle
 
-Books go through a two-phase ingestion process:
+`embedding_status = "done"` now means **description is embedded** — the minimum level for hybrid and keyword search. Genome is a bonus, gated at ≥ 3 tropes.
 
 | Phase | Trigger | State |
 |---|---|---|
-| **Ingestion** | `POST /books` (Title, Author, ISBN, Description) | `embedding_status = pending`, `genome_embedding = NULL` |
-| **Tagging** | Admin visits book page and attaches tropes via `POST /books/{id}/tropes` | Still `pending` until threshold |
-| **Commit** | Trope count reaches `TROPE_THRESHOLD = 3` | `_embed_in_background` fires automatically |
-| **Done** | Embedding succeeds | `embedding_status = done` — book appears in Similar Books / For You |
+| **Ingestion** | `POST /books` (Title, Author, ISBN, Description) | `embedding_status = pending`, both embeddings NULL |
+| **Description embedded** | Embedding job runs | `embedding_status = done`, `description_embedding` populated |
+| **Genome gated** | Trope count reaches `TROPE_THRESHOLD = 3` | `genome_embedding` also populated — book appears in vibe search, Similar Books, For You |
 
 Key rules:
-- No genome embedding fires at book creation. Cover fetching still runs immediately.
-- Every `POST /books/{id}/tropes` call counts tropes after attaching; if count ≥ 3, embedding triggers.
-- If a trope is removed and the count drops below 3, `genome_embedding` is cleared and `embedding_status` resets to `pending` so the book exits the recommendation pool.
-- All other metadata changes (archetype, genre, tone, pacing) also trigger re-embedding, but only when trope count ≥ 3.
-- Admin **Embed All** skips books below the threshold — only books with ≥ 3 tropes and status ≠ `done` are queued.
+- Description embedding always runs; genome additionally requires ≥ 3 tropes.
+- If a trope is removed and count drops below 3, only `genome_embedding` is cleared; `embedding_status` stays `done`.
+- Admin **Embed All** queues all books with `status != "done"` — no trope-count gate.
+- Background task crash recovery: if the batch crashes, remaining `pending` books are marked `failed` via bulk UPDATE.
 
 Each book tracks `embedding_status`:
-- `pending` — awaiting tagging (< 3 tropes) or awaiting embedding job (≥ 3 tropes, job not yet run)
-- `done` — both genome and description streams embedded and stored
-- `failed` — embedding job threw an error (book has ≥ 3 tropes but encode failed)
+- `pending` — description not yet embedded
+- `done` — description embedded (may or may not have genome)
+- `failed` — embedding job threw an error
 
 ---
 
@@ -629,6 +641,9 @@ uv run alembic downgrade -1
 # Embed all books (script)
 uv run python scripts/embed_all_books.py
 
+# Import pre-tagged books from tagged_books.json
+uv run python scripts/import_tagged_books.py --no-embed
+
 # Seed database
 uv run python scripts/seed.py
 ```
@@ -730,3 +745,5 @@ Embedding and cover-fetching run as FastAPI `BackgroundTask` objects — they ex
 | j4k5l6m7n8o9 | **Drop embedding_jobs and recommendation_events** (replaced by inline status) |
 | k5l6m7n8o9p0 | **Add preferences JSONB to app_users** (blocked content lists, profile_public) |
 | l6m7n8o9p0q1 | **Add user_follows table** (follower_id, followee_id, created_at; composite PK + indexes) |
+| n8o9p0q1r2s3 | **Add search_vector tsvector GENERATED column** to books (lexical full-text for hybrid search) |
+| o9p0q1r2s3t4 | **Add page_count, language columns** to books; add review_embedding vector(768) |

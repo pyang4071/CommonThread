@@ -8,7 +8,7 @@ import type { StatusValue } from '../components/ReadingStatusButton'
 import { useAuth } from '../contexts/AuthContext'
 import { useSessionState } from '../hooks/useSessionState'
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 30
 
 const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
   { code: 'eng', label: 'English' },

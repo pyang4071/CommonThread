@@ -261,6 +261,26 @@ npm run test:public   # no credentials needed — 14/14 pass
 
 ---
 
+### 2026-04-18 — Trope threshold blocked 6997 imported books from all search features
+
+**Context**: Admin "Embed All" button; 6997 books imported via Open Library with no tropes.
+
+**Error**: No error thrown, but the admin panel reported "No eligible books to queue — 6997 books are pending but haven't reached the tagging threshold." All 6997 books were invisible in hybrid search and lexical search despite having descriptions.
+
+**Root Cause**: `embedding_status = "done"` was conflated with "both genome AND description are embedded." The trope threshold gate in `embed_all` blocked description embedding for any book with < 3 tropes, leaving them `pending` forever. The semantic leg of hybrid search queries `description_embedding IS NOT NULL`, so these books were fully excluded from search even though their descriptions were available.
+
+**Fix**: Split the embedding contract:
+- `embedding_status = "done"` now means *description is embedded* (minimum for searchability)
+- Genome is embedded only when `book.book_tropes >= 3` — checked per-book inside `embed_books_batch` and `embed_book` via the loaded `book_tropes` relationship
+- `embed_description_only` now sets `embedding_status = "done"` so newly created books mark done after creation-time description embedding
+- `embed_all` in admin no longer filters by trope count — it queues all pending/failed books and lets the embedding service decide per-book what to embed
+- `detach_trope` (below threshold): clears `genome_embedding` only; no longer resets `embedding_status` to `"pending"`
+- BookDetail "needs more tropes" badge condition changed from `embedding_status !== 'done' && tropes.length < 3` to just `tropes.length < 3`
+
+**Prevention**: Never gate description embedding behind structural metadata thresholds. Description and genome are independent streams — a book with no tropes can still be searched by description. Only genome embedding should be gated on trope count.
+
+---
+
 ### 2026-04-13 — Tagging threshold: embedding must not fire at book creation
 
 **Context**: `app/routers/books.py` `create_book` endpoint; all trope/archetype/genre/tone attach endpoints.

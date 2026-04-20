@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin
@@ -14,9 +14,6 @@ from app.models.book_trope import BookTrope
 from app.models.user import AppUser
 from app.services.covers import fetch_cover_url
 from app.services.embedding import embed_book, embed_books_batch
-
-# Must match TROPE_THRESHOLD in routers/books.py
-TROPE_THRESHOLD = 3
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 logger = logging.getLogger(__name__)
@@ -35,6 +32,14 @@ class EmbedStatusResult(BaseModel):
 
 class FetchCoversResult(BaseModel):
     queued: int
+
+
+class VectorCoverageResult(BaseModel):
+    total: int
+    both: int           # genome + description
+    description_only: int
+    neither: int
+    genome_eligible: int  # books with >= 3 canonical tropes (could have genome embedding)
 
 
 async def _embed_book_safe(book_id: int, max_attempts: int = 3) -> None:
@@ -87,34 +92,81 @@ async def embed_status(db: AsyncSession = Depends(get_db), _: AppUser = Depends(
     )
 
 
+@router.get("/vector-coverage", response_model=VectorCoverageResult)
+async def vector_coverage(db: AsyncSession = Depends(get_db), _: AppUser = Depends(require_admin)):
+    """
+    Count books by which embedding streams are populated.
+    Excludes soft-deleted books.
+    """
+    eligible_book_ids = (
+        select(BookTrope.book_id)
+        .group_by(BookTrope.book_id)
+        .having(func.count(BookTrope.trope_id) >= 3)
+    )
+    row = (await db.execute(
+        select(
+            func.count(1).label("total"),
+            func.count(1).filter(
+                Book.genome_embedding.is_not(None),
+                Book.description_embedding.is_not(None),
+            ).label("both"),
+            func.count(1).filter(
+                Book.genome_embedding.is_(None),
+                Book.description_embedding.is_not(None),
+            ).label("description_only"),
+            func.count(1).filter(
+                Book.genome_embedding.is_(None),
+                Book.description_embedding.is_(None),
+            ).label("neither"),
+            func.count(1).filter(
+                Book.book_id.in_(eligible_book_ids),
+            ).label("genome_eligible"),
+        ).where(Book.deleted_at.is_(None))
+    )).one()
+    return VectorCoverageResult(
+        total=row.total,
+        both=row.both,
+        description_only=row.description_only,
+        neither=row.neither,
+        genome_eligible=row.genome_eligible,
+    )
+
+
 @router.post("/embed-all", response_model=EmbedAllResult)
 async def embed_all(db: AsyncSession = Depends(get_db), _: AppUser = Depends(require_admin)):
     """
     Kick off a single background task that batch-embeds every book whose
     status is not 'done' (both pending and failed).
-    Books are processed in chunks of 32 — genome and description streams
-    run concurrently within each chunk.
+    Description is embedded for all books; genome is only embedded for books
+    with >= 3 tropes (checked per-book inside embed_books_batch).
     Returns the number of books queued.
     """
-    # Only embed books that have reached the tagging threshold — books with fewer
-    # than TROPE_THRESHOLD tropes are intentionally left as 'pending' until tagged.
-    eligible_book_ids = (
-        select(BookTrope.book_id)
-        .group_by(BookTrope.book_id)
-        .having(func.count() >= TROPE_THRESHOLD)
-    )
     result = await db.execute(
         select(Book.book_id)
         .where(Book.embedding_status != "done")
-        .where(Book.book_id.in_(eligible_book_ids))
     )
     book_ids = list(result.scalars().all())
     if not book_ids:
         return EmbedAllResult(queued=0)
 
     async def _run_batch_background() -> None:
-        async with AsyncSessionLocal() as session:
-            await embed_books_batch(book_ids, session)
+        try:
+            async with AsyncSessionLocal() as session:
+                await embed_books_batch(book_ids, session)
+        except Exception:
+            logger.exception(
+                "embed-all background task crashed before completing; "
+                "marking %d remaining pending books as failed",
+                len(book_ids),
+            )
+            async with AsyncSessionLocal() as session:
+                await session.execute(
+                    update(Book)
+                    .where(Book.book_id.in_(book_ids))
+                    .where(Book.embedding_status == "pending")
+                    .values(embedding_status="failed")
+                )
+                await session.commit()
 
     asyncio.create_task(_run_batch_background())
     return EmbedAllResult(queued=len(book_ids))

@@ -45,12 +45,12 @@ async def _embed_in_background(book_id: int, max_attempts: int = 3) -> None:
                     return
                 await embed_book(book_id, db)
                 # Post-guard: if a detach raced with us and count is now below threshold,
-                # undo the 'done' status so the badge shows correctly.
+                # clear the genome embedding so the book no longer appears in vibe/similarity
+                # search. Description embedding and 'done' status are preserved.
                 count_after = await _trope_count(db, book_id)
                 if count_after < TROPE_THRESHOLD:
                     book_obj = await db.get(Book, book_id)
                     if book_obj:
-                        book_obj.embedding_status = "pending"
                         book_obj.genome_embedding = None
                         await db.commit()
                 return
@@ -245,13 +245,11 @@ async def detach_trope(book_id: int, trope_id: int, db: AsyncSession = Depends(g
         # Still above threshold — re-embed with the updated trope set.
         asyncio.create_task(_embed_in_background(book_id))
     else:
-        # Dropped below threshold — invalidate any existing embedding so the book
-        # no longer appears in similarity / For You until it is re-tagged.
-        # Always reset regardless of current status so that in-flight background
-        # embedding tasks don't overwrite with a stale 'done' after detach.
+        # Dropped below threshold — clear genome so the book no longer appears in
+        # vibe/similarity search. Description embedding and 'done' status are kept
+        # so the book remains in hybrid/lexical search.
         book_obj = await db.get(Book, book_id)
-        if book_obj and book_obj.embedding_status != "pending":
-            book_obj.embedding_status = "pending"
+        if book_obj and book_obj.genome_embedding is not None:
             book_obj.genome_embedding = None
             await db.commit()
 

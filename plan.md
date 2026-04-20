@@ -406,3 +406,146 @@ hybrid: (body: HybridSearchRequest) =>
 | H2 — `hybrid_search()` CRUD | H1 (needs `search_vector` column) |
 | H3 — endpoint | H2 |
 | H4 — frontend | H3 |
+
+---
+
+---
+
+# Phase 3 — Crowd Promotion (Fixes + Archetype Extension)
+
+## Context
+
+The crowd promotion scaffolding was built in Phase 1 (Step 6) but has correctness bugs and is missing archetype support. This phase fixes the existing implementation and extends it symmetrically to archetypes.
+
+## Design Decisions (locked)
+
+| Decision | Choice |
+|---|---|
+| **A — Weight for promoted trope** | **Median** of all user-submitted weights (was: average) |
+| **B — Dominant trope rule** | Promotion allowed at median ≥ 0.4 only if the book already has a dominant canonical trope (weight ≥ 0.65). If no dominant exists, the promoted trope must itself have median ≥ 0.65 to serve as anchor. |
+| **C — Demotion on user removal** | **Ratchet** — once promoted, stays canonical forever. Weight recalculates (median) whenever user tags change. Admin-only removal via existing `DELETE /books/{id}/tropes/{trope_id}`. |
+| **D — Promotion threshold N** | Read from env var `CROWD_PROMOTION_THRESHOLD`, default 3. |
+| **E — Archetypes** | Same treatment. Median importance. No dominant-analogue check; require median importance ≥ 5. `is_crowd_promoted` column needs migration on `character_dna`. |
+
+## Bugs in Current Implementation
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | **Concurrency race** — two simultaneous upserts at count N-1 both pass the threshold check before either insert commits → IntegrityError on `book_tropes` PK | `INSERT … ON CONFLICT DO UPDATE` via `pg_insert().on_conflict_do_update()` |
+| 2 | **`TROPE_THRESHOLD` duplicated** — defined in both `books.py` and `user_tags.py`, will silently diverge | Move to `config.py`; both files import from `settings` |
+| 3 | **Weight never updates downward** — when a user removes their tag and count stays above threshold, the canonical weight is stale (still uses old avg) | After any tag removal, recalculate median from remaining user tags and update `book_tropes.weight` if changed; trigger re-embed if above threshold |
+| 4 | **No re-embed on weight change after removal** — the weight update path in bug #3 doesn't exist yet, so genome is stale after a user removes a high-weight tag | Trigger re-embed whenever the canonical weight changes (same `_embed_in_background` call) |
+| 5 | **Demotion code removed** — `demote_user_trope_if_needed` is replaced by the ratchet + weight-update pattern | Delete `demote_user_trope_if_needed`; replace call site in `remove_user_trope` with new `_update_crowd_weight` helper |
+| 6 | **avg → median** | Replace `func.avg()` with Python-side `statistics.median()` on fetched weights |
+
+## Promotion Logic (tropes) — Final Design
+
+```
+promote_or_update_trope(db, book_id, trope_id):
+
+  existing_canonical = db.get(BookTrope, (book_id, trope_id))
+
+  # Admin tag wins — never overwrite weight
+  if existing_canonical and not existing_canonical.is_crowd_promoted:
+    return False
+
+  # Fetch all user weights for this (book, trope)
+  user_weights = SELECT weight FROM user_book_tropes
+                 WHERE book_id=X AND trope_id=Y
+
+  if len(user_weights) < settings.CROWD_PROMOTION_THRESHOLD:
+    # Below threshold — if a crowd-promoted row exists, update its weight only
+    # (ratchet: don't delete it)
+    if existing_canonical and existing_canonical.is_crowd_promoted:
+      new_median = median(user_weights) if user_weights else existing_canonical.weight
+      if new_median != existing_canonical.weight:
+        existing_canonical.weight = new_median
+        db.commit()
+        trigger_re_embed_if_eligible(book_id)
+    return False
+
+  median_weight = median(user_weights)
+
+  if median_weight < MIN_MEDIAN_WEIGHT:  # 0.4
+    return False
+
+  # Dominant anchor check (B)
+  has_dominant = EXISTS(
+    SELECT 1 FROM book_tropes
+    WHERE book_id=X AND trope_id != Y AND weight >= 0.65
+  )
+  if not has_dominant and median_weight < DOMINANT_WEIGHT_THRESHOLD:  # 0.65
+    return False
+
+  # Upsert — ON CONFLICT handles race condition
+  pg_insert(BookTrope).values(
+    book_id=book_id, trope_id=trope_id,
+    weight=round(median_weight, 4), is_crowd_promoted=True
+  ).on_conflict_do_update(
+    index_elements=["book_id", "trope_id"],
+    set_={"weight": round(median_weight, 4)},
+    where=BookTrope.is_crowd_promoted == True   # never clobber admin row
+  )
+
+  trigger_re_embed_if_eligible(book_id)
+  return True
+```
+
+## Archetype Promotion Logic — Final Design
+
+Mirrors trope logic with these differences:
+- Tables: `character_dna` (canonical), `user_book_archetypes` (user tags)
+- Field: `importance` (int 1–10) instead of `weight` (float)
+- Threshold: median importance ≥ `MIN_MEDIAN_IMPORTANCE` (5)
+- No dominant-anchor check
+- `character_dna` needs `is_crowd_promoted` column (migration required)
+
+## Files to Change
+
+### 1. `backend/app/config.py`
+- Add `CROWD_PROMOTION_THRESHOLD: int = 3`
+- Add `TROPE_THRESHOLD: int = 3` (moved from `books.py` and `user_tags.py`)
+
+### 2. `backend/app/models/character_dna.py`
+- Add `is_crowd_promoted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")`
+
+### 3. New Alembic migration
+- `ALTER TABLE character_dna ADD COLUMN is_crowd_promoted BOOLEAN NOT NULL DEFAULT FALSE`
+- File: `p1q2r3s4t5u6_add_crowd_promoted_to_character_dna.py`
+
+### 4. `backend/app/crud/user_tags.py`
+- Remove local constants `MIN_USERS_FOR_PROMOTION`, `TROPE_THRESHOLD`; import from `settings`
+- Keep `MIN_MEDIAN_WEIGHT_FOR_PROMOTION = 0.4`, `DOMINANT_WEIGHT_THRESHOLD = 0.65`, `MIN_MEDIAN_IMPORTANCE = 5` as module constants
+- Replace `promote_user_trope_to_canonical` with updated version (median, dominant check, ON CONFLICT, ratchet weight-update when below threshold)
+- Delete `demote_user_trope_if_needed`
+- Add `_update_crowd_trope_weight(db, book_id, trope_id)` — called from `remove_user_trope` to recalculate median and re-embed if weight changed
+- Add `promote_or_update_archetype(db, book_id, archetype_id)` — mirrors trope logic, median importance ≥ 5
+- Add `_update_crowd_archetype_importance(db, book_id, archetype_id)` — mirrors trope weight-update helper
+- Wire archetype promotion into `upsert_user_archetype`
+- Wire archetype importance-update into `remove_user_archetype`
+
+### 5. `backend/app/routers/books.py`
+- Remove local `TROPE_THRESHOLD = 3`; import from `settings`
+
+### 6. `backend/.env.example`
+- Add `CROWD_PROMOTION_THRESHOLD=3`
+
+### 7. Backend schema — expose `is_crowd_promoted`
+- Verify `BookTropeRead` / archetype equivalent schemas include `is_crowd_promoted`
+- Check `BookReadDetail` response includes the flag so frontend can render badge
+
+### 8. `frontend/src/pages/BookDetail.tsx`
+- Render a small "crowd-tagged" badge on trope and archetype list items where `is_crowd_promoted === true`
+
+## Progress Checklist
+
+- [ ] `config.py` — add `CROWD_PROMOTION_THRESHOLD`, move `TROPE_THRESHOLD`
+- [ ] `character_dna.py` — add `is_crowd_promoted`
+- [ ] Migration — `is_crowd_promoted` on `character_dna`
+- [ ] `user_tags.py` — rewrite trope promotion (median, dominant check, ON CONFLICT, ratchet)
+- [ ] `user_tags.py` — add `_update_crowd_trope_weight` helper; wire into `remove_user_trope`
+- [ ] `user_tags.py` — add archetype promotion + weight-update helpers; wire in
+- [ ] `books.py` — import `TROPE_THRESHOLD` from settings
+- [ ] `.env.example` — add `CROWD_PROMOTION_THRESHOLD=3`
+- [ ] Backend schemas — confirm `is_crowd_promoted` exposed in detail responses
+- [ ] Frontend `BookDetail.tsx` — crowd-tagged badge
