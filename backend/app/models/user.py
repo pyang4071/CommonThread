@@ -16,5 +16,4 @@ class AppUser(Base):
     email: Mapped[str] = mapped_column(unique=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     is_admin: Mapped[bool] = mapped_column(default=False, server_default="false")
-    onboarding_completed: Mapped[bool] = mapped_column(default=False, server_default="false")
     preferences: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}", default=dict)
