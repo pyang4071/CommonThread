@@ -28,6 +28,16 @@ from app.schemas.book import BookCreate, BookGenreAttach, BookToneAttach, BookTr
 
 type Explanation = dict[str, list[str]]
 
+REVIEW_WEIGHT_SIMILAR = 0.20  # fraction of score from review stream in similar-books
+REVIEW_WEIGHT_FOR_YOU = 0.15  # fraction of score from review stream in for-you
+
+
+def _cosine_sim(a: np.ndarray, b: np.ndarray) -> float:
+    na, nb = np.linalg.norm(a), np.linalg.norm(b)
+    if na < 1e-9 or nb < 1e-9:
+        return 0.0
+    return float(np.dot(a, b) / (na * nb))
+
 
 async def get_book(db: AsyncSession, book_id: int) -> Book | None:
     result = await db.execute(
@@ -380,11 +390,19 @@ async def get_recommendations_for_user(
     from app.crud.user_tags import get_aggregated_taste
     from app.services.embedding import embed_user_taste
 
-    genome_q = await db.execute(
-        select(Book.genome_embedding)
-        .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
+    genome_q, review_pref_q = await asyncio.gather(
+        db.execute(
+            select(Book.genome_embedding)
+            .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
+        ),
+        db.execute(
+            select(Book.review_embedding)
+            .where(Book.book_id.in_(high_rated_ids), Book.review_embedding.is_not(None))
+        ),
     )
     genome_embeddings = [row[0] for row in genome_q.all()]
+    _review_pref_vecs = [np.array(row[0]) for row in review_pref_q.all()]
+    review_pref: np.ndarray | None = np.mean(_review_pref_vecs, axis=0) if _review_pref_vecs else None
 
     if genome_embeddings:
         use_stream = "genome"
@@ -508,6 +526,31 @@ async def get_recommendations_for_user(
             if not (b.series_id and b.series_position and b.series_position > 1
                     and b.series_id not in user_started_series_ids)
         ]
+
+    # ── 6c. Review stream re-scoring ──────────────────────────────────────────
+    # Blend in review_embedding cosine similarity when available. Books without
+    # review embeddings keep their original score unchanged.
+    if review_pref is not None and emb_picks:
+        pick_ids = [b.book_id for b, _ in emb_picks]
+        rev_q = await db.execute(
+            select(Book.book_id, Book.review_embedding)
+            .where(Book.book_id.in_(pick_ids), Book.review_embedding.is_not(None))
+        )
+        review_embs: dict[int, np.ndarray] = {
+            row.book_id: np.array(row.review_embedding) for row in rev_q
+        }
+        if review_embs:
+            emb_picks = [
+                (
+                    b,
+                    (1 - REVIEW_WEIGHT_FOR_YOU) * s
+                    + REVIEW_WEIGHT_FOR_YOU * _cosine_sim(review_pref, review_embs[b.book_id])
+                    if b.book_id in review_embs
+                    else s,
+                )
+                for b, s in emb_picks
+            ]
+            emb_picks.sort(key=lambda x: x[1], reverse=True)
 
     # ── 7. Collaborative filtering ────────────────────────────────────────────
     collab_quota = limit // 3
@@ -674,7 +717,20 @@ async def get_similar_books(
         return []
 
     candidate_ids = list(candidate_books.keys())
-    sparse_scores = await sparse_similarity_scores(db, book_id, candidate_ids)
+    sparse_scores, rev_emb_q = await asyncio.gather(
+        sparse_similarity_scores(db, book_id, candidate_ids),
+        db.execute(
+            select(Book.book_id, Book.review_embedding)
+            .where(
+                Book.book_id.in_([book_id] + candidate_ids),
+                Book.review_embedding.is_not(None),
+            )
+        ),
+    )
+    review_embs_sim: dict[int, np.ndarray] = {
+        row.book_id: np.array(row.review_embedding) for row in rev_emb_q
+    }
+    src_review = review_embs_sim.get(book_id)
 
     # Load source book's tropes and archetypes for explanation
     src_tropes_q = await db.execute(
@@ -714,7 +770,12 @@ async def get_similar_books(
     alpha = 0.5
     blended: list[tuple[Book, float, Explanation]] = []
     for bid in candidate_ids:
-        score = alpha * emb_scores.get(bid, 0.0) + (1 - alpha) * sparse_scores.get(bid, 0.0)
+        base = alpha * emb_scores.get(bid, 0.0) + (1 - alpha) * sparse_scores.get(bid, 0.0)
+        if src_review is not None and bid in review_embs_sim:
+            review_score = _cosine_sim(src_review, review_embs_sim[bid])
+            score = (1 - REVIEW_WEIGHT_SIMILAR) * base + REVIEW_WEIGHT_SIMILAR * review_score
+        else:
+            score = base
         shared_tropes = [
             name for tid, name in cand_tropes.get(bid, {}).items()
             if tid in src_trope_ids
