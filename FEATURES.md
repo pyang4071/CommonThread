@@ -459,14 +459,16 @@ Books without genome embedding appear in hybrid and keyword search but are exclu
 4. Embed taste genome via genome model
 5. Run pgvector cosine similarity search against all `done` books
 6. Exclude books already rated or on shelf, and books the user has disliked
-7. Return top-N with explanation: `{shared_tropes[], shared_archetypes[], source: "embedding"}`
+7. **Review re-scoring**: mean-pool `review_embedding` for the user's high-rated books into a review preference vector; after diversity/series gating, re-score candidates at `0.85 * emb_score + 0.15 * review_cosine` when the candidate has a review embedding (fallback: emb_score unchanged)
+8. Return top-N with explanation: `{shared_tropes[], shared_archetypes[], source: "embedding"}`
 
 ### Similar Books (`/recommendations/{book_id}/similar`)
 
-1. Compute sparse cosine similarity using `book_tropes.weight` and `character_dna.importance / 10` feature vectors
-2. Blend with pgvector genome embedding cosine similarity
-3. Exclude the source book itself
-4. Return top-N with explanation including shared tropes/archetypes
+1. Retrieve top candidates via pgvector cosine distance on genome (or description) embedding
+2. Compute sparse cosine similarity using `book_tropes.weight` and `character_dna.importance / 10` feature vectors
+3. **Three-stream blend**: `score = 0.5 * emb + 0.5 * sparse` baseline; when both source and candidate have `review_embedding`, shifts to `0.80 * base + 0.20 * review_cosine`
+4. Exclude the source book itself
+5. Return top-N with explanation including shared tropes/archetypes
 
 ---
 
