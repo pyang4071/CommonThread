@@ -199,10 +199,10 @@ async def embed_query(text: str) -> tuple[list[float], list[float]]:
 
 async def embed_description_only(book_id: int, db: AsyncSession) -> Book | None:
     """
-    Embed only the description stream for a book.
+    Embed only the description stream for a book and mark it done.
 
     Fires at book creation regardless of trope count — no genome gate.
-    Does not touch genome_embedding or embedding_status.
+    Does not touch genome_embedding.
     Returns None (no-op) if the book has no description.
     """
     result = await db.execute(select(Book).where(Book.book_id == book_id))
@@ -211,6 +211,7 @@ async def embed_description_only(book_id: int, db: AsyncSession) -> Book | None:
         return None
 
     book.description_embedding = await _run(book.description, _get_description_model)
+    book.embedding_status = "done"
     await db.commit()
     await db.refresh(book)
     return book
@@ -254,22 +255,26 @@ async def embed_reviews_for_book(book_id: int, db: AsyncSession) -> Book | None:
     return book
 
 
-async def embed_book(book_id: int, db: AsyncSession) -> Book:
+async def embed_book(book_id: int, db: AsyncSession, genome_threshold: int = 3) -> Book:
     """
-    Full pipeline: load book → embed both streams → persist to DB.
-    Returns the updated Book instance.
+    Full pipeline: load book → embed streams → persist to DB.
+
+    Description is always embedded (if present).
+    Genome is only embedded when the book has >= genome_threshold tropes — a sparse
+    genome (title+author only) adds noise rather than signal to similarity search.
+    embedding_status is set to 'done' regardless so the book is searchable via
+    description even when it doesn't yet qualify for genome/vibe search.
     """
     book = await get_book_detail(db, book_id)
     if book is None:
         raise ValueError(f"Book {book_id} not found")
 
-    genome_str = build_genome(book)
-    book.genome_embedding = await _run(genome_str, _get_genome_model)
-
     if book.description:
         book.description_embedding = await _run(book.description, _get_description_model)
-    else:
-        book.description_embedding = None
+
+    if len(book.book_tropes) >= genome_threshold:
+        genome_str = build_genome(book)
+        book.genome_embedding = await _run(genome_str, _get_genome_model)
 
     book.embedding_status = "done"
     await db.commit()
@@ -281,15 +286,17 @@ async def embed_books_batch(
     book_ids: list[int],
     db: AsyncSession,
     batch_size: int = 32,
+    genome_threshold: int = 3,
 ) -> dict[int, str]:
     """
     Embed multiple books efficiently using batched model inference.
 
-    Loads all books in one query, processes them in chunks of `batch_size`,
-    and runs the genome and description models concurrently within each chunk.
-    Each book is committed as its chunk completes so progress is not lost on
-    partial failure.
+    Description is always embedded (for books that have one).
+    Genome is only embedded for books with >= genome_threshold tropes.
+    embedding_status is set to 'done' for all successfully processed books so
+    they appear in hybrid/lexical search even if genome is skipped.
 
+    Each chunk is committed as it completes so progress is not lost on partial failure.
     Returns a dict mapping book_id → final status ('done' | 'failed').
     """
     result = await db.execute(
@@ -308,30 +315,42 @@ async def embed_books_batch(
     for i in range(0, len(books), batch_size):
         chunk = books[i : i + batch_size]
 
-        genome_texts = [build_genome(b) for b in chunk]
-
-        # Only embed descriptions for books that have one
+        # Separate books by what they need embedded
+        genome_indices: list[int] = []
+        genome_texts: list[str] = []
         desc_indices: list[int] = []
         desc_texts: list[str] = []
         for idx, b in enumerate(chunk):
             if b.description:
                 desc_indices.append(idx)
                 desc_texts.append(b.description)
+            if len(b.book_tropes) >= genome_threshold:
+                genome_indices.append(idx)
+                genome_texts.append(build_genome(b))
 
         try:
-            if desc_texts:
-                genome_vecs, desc_vecs = await asyncio.gather(
-                    _run_batch(genome_texts, _get_genome_model),
+            desc_vec_map: dict[int, list[float]] = {}
+            genome_vec_map: dict[int, list[float]] = {}
+
+            if desc_texts and genome_texts:
+                desc_vecs, genome_vecs = await asyncio.gather(
                     _run_batch(desc_texts, _get_description_model),
+                    _run_batch(genome_texts, _get_genome_model),
                 )
                 desc_vec_map = dict(zip(desc_indices, desc_vecs))
-            else:
+                genome_vec_map = dict(zip(genome_indices, genome_vecs))
+            elif desc_texts:
+                desc_vecs = await _run_batch(desc_texts, _get_description_model)
+                desc_vec_map = dict(zip(desc_indices, desc_vecs))
+            elif genome_texts:
                 genome_vecs = await _run_batch(genome_texts, _get_genome_model)
-                desc_vec_map = {}
+                genome_vec_map = dict(zip(genome_indices, genome_vecs))
 
-            for idx, (book, genome_vec) in enumerate(zip(chunk, genome_vecs)):
-                book.genome_embedding = genome_vec
-                book.description_embedding = desc_vec_map.get(idx)
+            for idx, book in enumerate(chunk):
+                if idx in desc_vec_map:
+                    book.description_embedding = desc_vec_map[idx]
+                if idx in genome_vec_map:
+                    book.genome_embedding = genome_vec_map[idx]
                 book.embedding_status = "done"
                 statuses[book.book_id] = "done"
 

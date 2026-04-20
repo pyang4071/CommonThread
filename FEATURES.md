@@ -1,6 +1,6 @@
 # CommonThread — Feature Reference
 
-Complete inventory of all functionality in the frontend and backend as of 2026-04-14.
+Complete inventory of all functionality in the frontend and backend as of 2026-04-19.
 
 ---
 
@@ -87,7 +87,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 | `/genres` | Genres | Create, search, and delete genres |
 | `/book-types` | BookTypes | Create, search, and delete book types |
 | `/tones` | Tones | Create, search, and delete tones |
-| `/admin` | Admin | Embed status dashboard, trigger batch embedding, trigger cover fetching |
+| `/admin` | Admin | Embed status dashboard, trigger batch embedding, trigger cover fetching, vector coverage breakdown |
 
 ---
 
@@ -100,7 +100,8 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 #### Books (`/books`)
 - Keyword search by title/author
 - **Vibe (semantic) search**: text query, alpha slider (`More tropes & archetypes` ↔ `More vibe & prose`), 4 example-query chips
-- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter
+- **Hybrid search**: lexical full-text + semantic description via RRF; accessible from the search bar when toggled to hybrid mode
+- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, page count range, language
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
 - Card grid results with cover, title, author, pub year, avg rating, ReadingStatusButton
@@ -157,7 +158,8 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 #### Admin (`/admin`)
 - Embed status bar (done / pending / failed with percentages)
-- Embed All button — kicks off background batch; status auto-refreshes every 4 s until `pending === 0`; "Refreshing…" badge while polling
+- Embed All button — kicks off background batch; status auto-refreshes every 4 s until `pending === 0`; "Refreshing…" badge while polling; stall detection stops polling after 5 consecutive polls with no change and shows a warning
+- **Vector Coverage panel** — stacked bar + stat cards showing how many books have: (1) genome + description, (2) description only, (3) neither; auto-refreshes after embedding completes
 - Fetch Covers button — queues background cover fetch for all books without a cover URL
 
 #### AddBook / EditBook
@@ -180,7 +182,7 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/books` | Optional | List books. Query: `skip`, `limit`, `search`, `genre_ids[]`, `book_type_ids[]`, `tone_ids[]`, `categories[]`, `pacing`, `exclude_trope_ids[]`, `exclude_archetype_ids[]`, `exclude_genre_ids[]`, `exclude_book_type_ids[]`, `exclude_tone_ids[]`, `shelf_status`. Returns `avg_rating`. Respects user's content blocklist if authenticated. |
+| GET | `/books` | Optional | List books. Query: `skip`, `limit`, `search`, `genre_ids[]`, `book_type_ids[]`, `tone_ids[]`, `categories[]`, `pacing`, `page_count_min`, `page_count_max`, `language`, `exclude_trope_ids[]`, `exclude_archetype_ids[]`, `exclude_genre_ids[]`, `exclude_book_type_ids[]`, `exclude_tone_ids[]`, `shelf_status`. Returns `avg_rating`. Respects user's content blocklist if authenticated. |
 | POST | `/books` | Admin | Create book. Triggers background: embed + cover fetch. |
 | GET | `/books/{id}` | Optional | Full book detail (tropes, archetypes, genres, types, tones, series, embedding status). |
 | PUT | `/books/{id}` | Admin | Update metadata. Re-embeds in background. |
@@ -239,7 +241,8 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/search` | Optional | Semantic search. `q` (query), `alpha` (0–1, default 0.7), `limit`, plus same filter params as `/books`. Returns ranked `SearchResult` list with scores. |
+| GET | `/search` | Optional | Vibe/semantic search. `q` (query), `alpha` (0–1, default 0.7 — higher = more structural/genome, lower = more description/prose), `limit`, plus same filter params as `/books`. Returns ranked `SearchResult[]` with `{book, score}`. Requires `genome_embedding IS NOT NULL`. |
+| POST | `/search/hybrid` | Optional | Hybrid search combining PostgreSQL full-text (lexical) and BGE-base description cosine similarity via Reciprocal Rank Fusion. Body: `{q, top_n, alpha (0–1, default 0.5 — higher = more lexical), min_score, genre_ids[], book_type_ids[], tone_ids[], pacing, categories[], exclude_*[]}`. Returns `HybridResult[]` with `{book, score, match_type: "both"\|"lexical"\|"semantic", lex_rank, sem_rank}`. Works for all books including those without genome embeddings. |
 
 ### Recommendations — `/recommendations`
 
@@ -287,14 +290,15 @@ Base path: `/api/v1`
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/admin/embed-status` | Admin | `{total, done, pending, failed}` counts. |
-| POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding. Returns `{queued: int}`. Runs in background. |
+| POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding. Returns `{queued: int}`. Runs in background; crashes are caught and remaining `pending` books marked `failed`. |
+| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither}` — counts of books by which embedding streams are populated. Excludes soft-deleted books. |
 | POST | `/admin/fetch-covers` | Admin | Queue cover fetching for all books with no `cover_url`. Runs in background. |
 
 ### System
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/health` | — | `{status: "ok", models: {genome: "ready"\|"loading", description: "ready"\|"loading"}}` |
+| GET | `/health` | — | `{status: "ok", models: {genome: "ready"\|"loading", description: "ready"\|"loading", review: "ready"\|"loading"}}` |
 
 ---
 
@@ -323,10 +327,14 @@ Base path: `/api/v1`
 | publication_date | DATE | Nullable |
 | description | TEXT | Nullable |
 | pacing | INT 1–5 | Nullable |
+| page_count | INT | Nullable |
+| language | VARCHAR | Nullable (e.g. `"eng"`) |
 | cover_url | VARCHAR | Nullable |
-| genome_embedding | vector(384) | Structural signal |
+| search_vector | TSVECTOR | GENERATED — auto-updated from title + description; used by hybrid lexical search |
+| genome_embedding | vector(384) | Structural signal (tropes, archetypes, genres, tones) |
 | description_embedding | vector(768) | Prose/vibe signal |
-| embedding_status | VARCHAR | `pending` \| `done` \| `failed` |
+| review_embedding | vector(768) | Aggregated review text signal; NULL until reviews are embedded |
+| embedding_status | VARCHAR | `pending` \| `done` \| `failed`. `done` means description is embedded (minimum searchability); genome is additionally embedded when trope count ≥ 3 |
 | series_id | INT FK → series | Nullable, SET NULL on delete |
 | series_position | INT | Nullable |
 | created_at / updated_at / deleted_at | TIMESTAMP | Soft-delete via deleted_at |
@@ -370,12 +378,13 @@ Base path: `/api/v1`
 
 ## Embedding Architecture
 
-### Two-Stream Design
+### Three-Stream Design
 
 | Stream | Model | Dimensions | Encodes |
 |---|---|---|---|
-| Genome | `BAAI/bge-small-en-v1.5` | 384 | Structured literary metadata (tropes + weights, archetypes + importance, genres, tones, pacing, title, author). **Excludes description.** |
-| Description | `BAAI/bge-base-en-v1.5` | 768 | Free-text book description only (prose vibe). NULL if no description. |
+| Genome | `BAAI/bge-small-en-v1.5` | 384 | Structured literary metadata (tropes + weights, archetypes + importance, genres, tones, pacing, title, author). **Excludes description.** Only computed when book has ≥ 3 canonical tropes. |
+| Description | `BAAI/bge-base-en-v1.5` | 768 | Free-text book description only (prose vibe). NULL if no description. Embedded for all books regardless of trope count. |
+| Review | `BAAI/bge-base-en-v1.5` | 768 | Aggregated review text from users. NULL until at least one review is embedded. |
 
 ### Genome Text Format
 
@@ -388,7 +397,7 @@ Tone: Dark, Witty.
 Pacing: 4/5.
 ```
 
-### Search Scoring
+### Vibe Search Scoring
 
 ```
 score = alpha × cosine(query_genome, book_genome)
@@ -397,29 +406,44 @@ score = alpha × cosine(query_genome, book_genome)
 
 - Default `alpha = 0.7` (70% structural, 30% vibe)
 - Books with no description use genome score alone regardless of alpha
+- Only books with `genome_embedding IS NOT NULL` are candidates
 - Query instruction prefix applied to both streams before encoding
 - pgvector HNSW index with `hnsw.ef_search = 40` for approximate nearest-neighbor
 
-### Tagging Threshold
+### Hybrid Search Scoring (RRF)
 
-`TROPE_THRESHOLD = 3` (defined in `app/routers/books.py` and `app/routers/admin.py`).
+```
+rrf(rank, k=60) = 1 / (k + rank)
+score = alpha × rrf(lex_rank) + (1 − alpha) × rrf(sem_rank)
+```
 
-Genome embedding is **not** triggered at book creation. Instead:
+- `alpha = 0.5` by default (equal lexical/semantic weight)
+- Lexical leg uses PostgreSQL `search_vector @@ plainto_tsquery(q)` on the `tsvector` GENERATED column
+- Semantic leg uses BGE-base description cosine similarity
+- Books present in only one leg still appear if their score clears `min_score = 0.003`
+- Works for all books — does not require genome embedding
+- Returns `match_type`: `"both"` | `"lexical"` | `"semantic"`
 
-1. Admin creates the book with basic metadata → `embedding_status = pending`, `genome_embedding = NULL`
-2. Admin attaches tropes via the book page or AddBook form
-3. After each `POST /books/{id}/tropes`, the backend counts canonical tropes; if count ≥ 3, `_embed_in_background` fires
-4. Removing a trope that drops count below 3 clears `genome_embedding` and resets status to `pending`
+### Tagging Threshold & Embedding Status
 
-Books below the threshold appear in text search (title/author) but are excluded from Similar Books and For You (both require `genome_embedding IS NOT NULL`).
+`TROPE_THRESHOLD = 3` (defined in `app/routers/books.py`).
+
+`embedding_status = "done"` now means the **description** is embedded (minimum searchability). Genome is separately gated:
+
+1. Book created → `embedding_status = pending`, both embeddings NULL
+2. Description is always embedded when embedding runs, sets status to `done`
+3. Genome is additionally embedded only when trope count ≥ 3
+4. Removing a trope that drops count below 3 clears only `genome_embedding` — status stays `done`
+
+Books without genome embedding appear in hybrid and keyword search but are excluded from Similar Books and For You (both require `genome_embedding IS NOT NULL`).
 
 ### Batch Processing
 
 - Chunk size: 32 books
-- Genome and description models run **concurrently** within each chunk (`asyncio.gather`)
+- Within each chunk, genome-eligible books run genome + description concurrently (`asyncio.gather`); description-only books run description alone
 - DB committed after each chunk — partial progress is preserved
 - Status per book: `done` or `failed`
-- Admin **Embed All** only queues books with ≥ `TROPE_THRESHOLD` tropes — books awaiting tagging are skipped
+- Admin **Embed All** queues all books with `embedding_status != "done"` — no trope-count gate
 
 ---
 
@@ -456,18 +480,18 @@ Books below the threshold appear in text search (title/author) but are excluded 
 
 ### Embedding Triggers
 
-Re-embed is queued as a FastAPI background task (same-process event loop) only when the book has ≥ `TROPE_THRESHOLD` canonical tropes:
+Description embedding runs for all books; genome embedding additionally requires ≥ `TROPE_THRESHOLD` canonical tropes. Both run as FastAPI background tasks in the same-process event loop.
 
-| Event | Embeds? |
-|---|---|
-| Book created | No — embedding deferred until tagging threshold |
-| Book metadata updated | Yes, if trope count ≥ 3 |
-| Trope attached (count reaches 3) | Yes — threshold commit |
-| Trope attached (count already ≥ 3) | Yes — re-embed with updated trope set |
-| Trope detached (count still ≥ 3) | Yes — re-embed |
-| Trope detached (count drops below 3) | Clears genome embedding, resets status to `pending` |
-| Archetype / genre / tone attached or detached | Yes, if trope count ≥ 3 |
-| Trope or archetype master record deleted | Re-embeds all affected books that still have ≥ 3 tropes |
+| Event | Description embeds? | Genome embeds? |
+|---|---|---|
+| Book created | Yes — queued immediately | Only if already ≥ 3 tropes (rare at creation) |
+| Book metadata updated | Yes | Yes, if trope count ≥ 3 |
+| Trope attached (count reaches 3) | Yes | Yes — threshold commit |
+| Trope attached (count already ≥ 3) | Yes | Yes — re-embed with updated trope set |
+| Trope detached (count still ≥ 3) | Yes | Yes — re-embed |
+| Trope detached (count drops below 3) | No (keeps existing) | Clears `genome_embedding`; status stays `done` |
+| Archetype / genre / tone attached or detached | Yes | Yes, if trope count ≥ 3 |
+| Trope or archetype master record deleted | Yes | Re-embeds affected books that still have ≥ 3 tropes |
 
 ### Model Pre-warm
 
@@ -480,7 +504,8 @@ Both FastEmbed models are loaded at application startup in the FastAPI lifespan 
 | Tool | What it does |
 |---|---|
 | **Embed Status** | Shows total / done / pending / failed book counts with percentage bars |
-| **Embed All** | Queues all `pending` and `failed` books for background embedding. Frontend polls status every 4 s until `pending === 0`. |
+| **Embed All** | Queues all `pending` and `failed` books for background embedding. Frontend polls status every 4 s until `pending === 0`. Stall detection: if pending count is unchanged for 5 consecutive polls, polling stops and a warning is shown. Background crash recovery: if the batch task crashes, remaining `pending` books are marked `failed` via bulk UPDATE. |
+| **Vector Coverage** | Stacked bar + 3 stat cards showing books with genome+description, description-only, and neither embedding. Auto-refreshes when embedding completes. Uses `COUNT(*) FILTER (WHERE ...)` aggregate on `books`. |
 | **Fetch Covers** | Queues background cover fetch for every book where `cover_url IS NULL`. |
 | **Master data CRUD** | Create / search / delete Genres, Book Types, and Tones from dedicated admin pages. |
 | **Add / Edit Book** | Full book creation and editing UI including trope/archetype/genre/type/tone tagging with weight and importance tiers. |
@@ -633,6 +658,45 @@ uv run python -m webscraper.run --resume
 
 ---
 
+## Data Ingestion — Tagged Books Import
+
+`backend/scripts/import_tagged_books.py` imports pre-tagged books from `backend/webscraper/output/tagged_books.json` (a JSON array) into the database.
+
+### What it does
+
+1. Reads `tagged_books.json` (produced by the AI tagging workflow in `create_books.md`)
+2. Matches each entry to an existing book by ISBN → title+author fallback (case-insensitive)
+3. Creates the book if not found
+4. Applies all taxonomy associations idempotently: genres, book types, tones, tropes (with weight), archetypes (with importance)
+5. Sets `embedding_status = "pending"` on all tagged books so they are re-embedded with the new metadata
+6. Optionally embeds all newly tagged books in one batch (omit with `--no-embed`)
+
+### Run
+
+```bash
+cd backend
+
+# Import and embed
+uv run python scripts/import_tagged_books.py
+
+# Import only (embed separately via Admin page or script)
+uv run python scripts/import_tagged_books.py --no-embed
+```
+
+The script is **idempotent** — re-running it on already-imported books is safe. Unknown taxonomy names generate a warning but do not abort the import.
+
+### Current data state (2026-04-18)
+
+| Metric | Count |
+|---|---|
+| Books in database | ~5,772 |
+| Tagged with tropes/archetypes | 648 |
+| Scraped JSONL files (not yet tagged) | 9,220 remaining |
+
+Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.json`. See `create_books.md` for the full tagging workflow and resumption instructions.
+
+---
+
 ## Key Constraints & Business Rules
 
 | Rule | Where enforced |
@@ -640,7 +704,7 @@ uv run python -m webscraper.run --resume
 | One rating per user per book | DB unique constraint on `(user_id, book_id)` in `book_ratings` |
 | Trope weight: 0.0–1.0 | DB check constraint + frontend tier picker |
 | Archetype importance: 1–10 | DB check constraint + frontend tier picker |
-| Tropes optional at book creation — recommendations unlock at ≥ 3 tropes | Backend threshold gate (`TROPE_THRESHOLD = 3`) |
+| Tropes optional at book creation — genome embedding + recommendations unlock at ≥ 3 tropes | Backend threshold gate (`TROPE_THRESHOLD = 3`); description embedding always runs |
 | If any tropes are added, at least one must be Major (≥ 0.65) | Frontend validation only |
 | Max 12 tropes per book | Frontend validation only |
 | Max 8 archetypes per book | Frontend validation only |
