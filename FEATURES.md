@@ -1,6 +1,6 @@
 # CommonThread — Feature Reference
 
-Complete inventory of all functionality in the frontend and backend as of 2026-04-19.
+Complete inventory of all functionality in the frontend and backend as of 2026-04-20.
 
 ---
 
@@ -117,7 +117,8 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Dislike button** — confirm modal before adding; spinner during in-flight
 - Tropes list with weight bars and category badges (linked to TropeDetail)
 - Character archetypes list with importance dot rows (linked to ArchetypeDetail)
-- **Your Tags section** (logged-in): typeahead to add personal trope tags (with weight slider) and archetype tags (with importance slider); remove with confirmation modal
+- **Your Tags section** (logged-in): typeahead to add personal trope tags (with weight slider) and archetype tags (with importance slider); remove with confirmation modal; once N users (default 3) tag the same trope/archetype, it is crowd-promoted to canonical
+- **Crowd-tagged badge** — teal `crowd-tagged` pill on any trope or archetype in the canonical list where `is_crowd_promoted = true`
 - Series strip (horizontal scroll of other books in series)
 - Reviews list — sortable by Newest / Oldest / Highest / Lowest (select shown when 2+ reviews)
 - Similar Books grid with shared-trope/archetype chips and match % badges; empty state for unembedded books
@@ -291,7 +292,7 @@ Base path: `/api/v1`
 |---|---|---|---|
 | GET | `/admin/embed-status` | Admin | `{total, done, pending, failed}` counts. |
 | POST | `/admin/embed-all` | Admin | Queue all pending/failed books for embedding. Returns `{queued: int}`. Runs in background; crashes are caught and remaining `pending` books marked `failed`. |
-| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither}` — counts of books by which embedding streams are populated. Excludes soft-deleted books. |
+| GET | `/admin/vector-coverage` | Admin | `{total, both, description_only, neither, genome_eligible}` — counts of books by which embedding streams are populated, plus how many books have ≥ 3 canonical tropes (genome-eligible). Excludes soft-deleted books. |
 | POST | `/admin/fetch-covers` | Admin | Queue cover fetching for all books with no `cover_url`. Runs in background. |
 
 ### System
@@ -334,6 +335,7 @@ Base path: `/api/v1`
 | genome_embedding | vector(384) | Structural signal (tropes, archetypes, genres, tones) |
 | description_embedding | vector(768) | Prose/vibe signal |
 | review_embedding | vector(768) | Aggregated review text signal; NULL until reviews are embedded |
+| review_embed_count | INT | Count of reviews that were included in the last review embed; used to batch re-embeds (only re-embed when `current_count - review_embed_count ≥ 5`) |
 | embedding_status | VARCHAR | `pending` \| `done` \| `failed`. `done` means description is embedded (minimum searchability); genome is additionally embedded when trope count ≥ 3 |
 | series_id | INT FK → series | Nullable, SET NULL on delete |
 | series_position | INT | Nullable |
@@ -357,8 +359,8 @@ Base path: `/api/v1`
 
 | Table | Key Fields | Constraints |
 |---|---|---|
-| `book_tropes` | `(book_id, trope_id)` PK | `weight` float 0.0–1.0 |
-| `character_dna` | `(book_id, archetype_id)` PK | `importance` int 1–10 |
+| `book_tropes` | `(book_id, trope_id)` PK | `weight` float 0.0–1.0; `is_crowd_promoted` BOOLEAN (true = promoted from user tags, false = admin-set) |
+| `character_dna` | `(book_id, archetype_id)` PK | `importance` int 1–10; `is_crowd_promoted` BOOLEAN |
 | `book_genres` | `(book_id, genre_id)` PK | — |
 | `book_book_types` | `(book_id, book_type_id)` PK | — |
 | `book_tones` | `(book_id, tone_id)` PK | — |
@@ -426,7 +428,7 @@ score = alpha × rrf(lex_rank) + (1 − alpha) × rrf(sem_rank)
 
 ### Tagging Threshold & Embedding Status
 
-`TROPE_THRESHOLD = 3` (defined in `app/routers/books.py`).
+`TROPE_THRESHOLD = 3` (configured in `app/config.py` as `settings.TROPE_THRESHOLD`; overridable via env var).
 
 `embedding_status = "done"` now means the **description** is embedded (minimum searchability). Genome is separately gated:
 
@@ -443,7 +445,7 @@ Books without genome embedding appear in hybrid and keyword search but are exclu
 - Within each chunk, genome-eligible books run genome + description concurrently (`asyncio.gather`); description-only books run description alone
 - DB committed after each chunk — partial progress is preserved
 - Status per book: `done` or `failed`
-- Admin **Embed All** queues all books with `embedding_status != "done"` — no trope-count gate
+- Admin **Embed All** queues books with `embedding_status != "done"` **or** `description IS NOT NULL AND description_embedding IS NULL` — catches books where status is `done` but description was added/updated after the last embed
 
 ---
 
@@ -478,15 +480,33 @@ Books without genome embedding appear in hybrid and keyword search but are exclu
 4. Clean "no cover" (404 / empty search results) treated as final — not retried
 5. Sets `books.cover_url` on success
 
+### Crowd Promotion System
+
+When enough users independently tag the same book+trope or book+archetype, the tag is **crowd-promoted** to canonical via `crud/user_tags.py`.
+
+**Trope promotion rules** (`_promote_or_update_trope`):
+1. At least `CROWD_PROMOTION_THRESHOLD` (default 3, env-configurable) users must have tagged the trope
+2. Median user weight ≥ `MIN_MEDIAN_WEIGHT` (0.4)
+3. **Dominant anchor check**: if no existing canonical trope has `weight ≥ 0.65`, the promoted trope itself must have median ≥ `DOMINANT_WEIGHT_THRESHOLD` (0.65)
+4. Atomic upsert via `pg_insert().on_conflict_do_update(where=is_crowd_promoted)` — never clobbers an admin-set row
+5. **Ratchet**: once promoted, the row is never removed by the system; weight recalculates to the new median whenever any user adds or removes their tag; re-embeds genome if weight changed
+
+**Archetype promotion rules** (`_promote_or_update_archetype`):
+- Same threshold count check; median `importance ≥ MIN_MEDIAN_IMPORTANCE` (5); no dominant-anchor check
+
+**On user tag removal**: `_update_crowd_trope_weight` / `_update_crowd_archetype_importance` recalculate the canonical weight/importance from remaining user tags. If no user tags remain, the canonical row is kept unchanged (ratchet).
+
 ### Embedding Triggers
 
-Description embedding runs for all books; genome embedding additionally requires ≥ `TROPE_THRESHOLD` canonical tropes. Both run as FastAPI background tasks in the same-process event loop.
+Description embedding runs for all books; genome embedding additionally requires ≥ `TROPE_THRESHOLD` canonical tropes (including crowd-promoted). Both run as FastAPI background tasks in the same-process event loop.
 
 | Event | Description embeds? | Genome embeds? |
 |---|---|---|
 | Book created | Yes — queued immediately | Only if already ≥ 3 tropes (rare at creation) |
 | Book metadata updated | Yes | Yes, if trope count ≥ 3 |
 | Trope attached (count reaches 3) | Yes | Yes — threshold commit |
+| User crowd-promotes a trope/archetype | — | Yes — genome re-embeds with new canonical entry |
+| User tag removed (canonical weight changes) | — | Yes — genome re-embeds with updated median weight |
 | Trope attached (count already ≥ 3) | Yes | Yes — re-embed with updated trope set |
 | Trope detached (count still ≥ 3) | Yes | Yes — re-embed |
 | Trope detached (count drops below 3) | No (keeps existing) | Clears `genome_embedding`; status stays `done` |
@@ -505,7 +525,7 @@ Both FastEmbed models are loaded at application startup in the FastAPI lifespan 
 |---|---|
 | **Embed Status** | Shows total / done / pending / failed book counts with percentage bars |
 | **Embed All** | Queues all `pending` and `failed` books for background embedding. Frontend polls status every 4 s until `pending === 0`. Stall detection: if pending count is unchanged for 5 consecutive polls, polling stops and a warning is shown. Background crash recovery: if the batch task crashes, remaining `pending` books are marked `failed` via bulk UPDATE. |
-| **Vector Coverage** | Stacked bar + 3 stat cards showing books with genome+description, description-only, and neither embedding. Auto-refreshes when embedding completes. Uses `COUNT(*) FILTER (WHERE ...)` aggregate on `books`. |
+| **Vector Coverage** | Stacked bar + stat cards showing books with genome+description, description-only, and neither embedding, plus a **genome-eligible** count (books with ≥ 3 canonical tropes). Shows what % of eligible books are actually embedded and how many are awaiting genome. Auto-refreshes when embedding completes. |
 | **Fetch Covers** | Queues background cover fetch for every book where `cover_url IS NULL`. |
 | **Master data CRUD** | Create / search / delete Genres, Book Types, and Tones from dedicated admin pages. |
 | **Add / Edit Book** | Full book creation and editing UI including trope/archetype/genre/type/tone tagging with weight and importance tiers. |
@@ -704,7 +724,10 @@ Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.
 | One rating per user per book | DB unique constraint on `(user_id, book_id)` in `book_ratings` |
 | Trope weight: 0.0–1.0 | DB check constraint + frontend tier picker |
 | Archetype importance: 1–10 | DB check constraint + frontend tier picker |
-| Tropes optional at book creation — genome embedding + recommendations unlock at ≥ 3 tropes | Backend threshold gate (`TROPE_THRESHOLD = 3`); description embedding always runs |
+| Tropes optional at book creation — genome embedding + recommendations unlock at ≥ 3 tropes | Backend threshold gate (`settings.TROPE_THRESHOLD`, default 3); description embedding always runs |
+| Crowd promotion: N users tagging same trope/archetype promotes it to canonical | `CROWD_PROMOTION_THRESHOLD` (default 3) + median weight/importance check + dominant-anchor rule |
+| Crowd-promoted canonical tags are never auto-removed (ratchet) | Once `is_crowd_promoted = true`, only admin can remove via `DELETE /books/{id}/tropes/{trope_id}` |
+| Review re-embed batched — only when review count grows by ≥ 5 | `review_embed_count` column tracks last-embedded count; `REVIEW_EMBED_BATCH_SIZE = 5` |
 | If any tropes are added, at least one must be Major (≥ 0.65) | Frontend validation only |
 | Max 12 tropes per book | Frontend validation only |
 | Max 8 archetypes per book | Frontend validation only |

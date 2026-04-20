@@ -18,9 +18,14 @@ class Settings(BaseSettings):
     # App
     SECRET_KEY: str = "change-me-in-development"
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
-    # Allowed CORS origins in staging/production.
-    # Format: JSON list, e.g. CORS_ORIGINS=["https://myapp.com"]
     CORS_ORIGINS: list[str] = []
+
+    # Crowd promotion: minimum distinct users required to promote a user tag to canonical
+    CROWD_PROMOTION_THRESHOLD: int = 3
+    # Genome embedding gate: minimum canonical tropes required before genome is embedded
+    TROPE_THRESHOLD: int = 3
+    # Review re-embed: only re-embed review stream when review count grows by this many
+    REVIEW_EMBED_BATCH_SIZE: int = 5
 
     @computed_field
     @property

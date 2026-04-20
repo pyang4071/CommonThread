@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud
 from app.auth import get_optional_user
+from app.config import settings
 from app.database import get_db
 from app.database.engine import AsyncSessionLocal
 from app.models.book_rating import BookRating
@@ -31,9 +32,6 @@ from app.services.embedding import embed_book, embed_description_only, embed_rev
 router = APIRouter(prefix="/books", tags=["books"])
 logger = logging.getLogger(__name__)
 
-# Minimum number of canonical tropes required before genome embedding is triggered.
-TROPE_THRESHOLD = 3
-
 
 async def _embed_in_background(book_id: int, max_attempts: int = 3) -> None:
     for attempt in range(max_attempts):
@@ -41,14 +39,14 @@ async def _embed_in_background(book_id: int, max_attempts: int = 3) -> None:
             try:
                 # Pre-guard: abort if tropes dropped below threshold while we were waiting
                 count = await _trope_count(db, book_id)
-                if count < TROPE_THRESHOLD:
+                if count < settings.TROPE_THRESHOLD:
                     return
                 await embed_book(book_id, db)
                 # Post-guard: if a detach raced with us and count is now below threshold,
                 # clear the genome embedding so the book no longer appears in vibe/similarity
                 # search. Description embedding and 'done' status are preserved.
                 count_after = await _trope_count(db, book_id)
-                if count_after < TROPE_THRESHOLD:
+                if count_after < settings.TROPE_THRESHOLD:
                     book_obj = await db.get(Book, book_id)
                     if book_obj:
                         book_obj.genome_embedding = None
@@ -172,7 +170,7 @@ async def list_books(
 async def create_book(data: BookCreate, db: AsyncSession = Depends(get_db)):
     """
     Create a book with basic metadata. embedding_status starts as 'pending'.
-    No genome embedding is triggered here — the book must first reach TROPE_THRESHOLD
+    No genome embedding is triggered here — the book must first reach settings.TROPE_THRESHOLD
     canonical tropes via POST /books/{id}/tropes before embedding fires.
     Cover fetching still runs immediately in the background.
     """
@@ -201,7 +199,7 @@ async def update_book(book_id: int, data: BookUpdate, db: AsyncSession = Depends
         raise HTTPException(status_code=404, detail="Book not found")
     updated = await crud.book.update_book(db, book, data)
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
     return updated
 
@@ -231,7 +229,7 @@ async def attach_trope(
         raise HTTPException(status_code=404, detail="Book not found")
     await crud.book.attach_trope(db, book_id, data)
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -241,7 +239,7 @@ async def detach_trope(book_id: int, trope_id: int, db: AsyncSession = Depends(g
     if not removed:
         raise HTTPException(status_code=404, detail="Book-trope association not found")
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         # Still above threshold — re-embed with the updated trope set.
         asyncio.create_task(_embed_in_background(book_id))
     else:
@@ -263,7 +261,7 @@ async def attach_archetype(
         raise HTTPException(status_code=404, detail="Book not found")
     await crud.book.attach_archetype(db, book_id, data)
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -273,7 +271,7 @@ async def detach_archetype(book_id: int, archetype_id: int, db: AsyncSession = D
     if not removed:
         raise HTTPException(status_code=404, detail="Book-archetype association not found")
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -286,7 +284,7 @@ async def attach_genre(
         raise HTTPException(status_code=404, detail="Book not found")
     await crud.book.attach_genre(db, book_id, data)
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -296,7 +294,7 @@ async def detach_genre(book_id: int, genre_id: int, db: AsyncSession = Depends(g
     if not removed:
         raise HTTPException(status_code=404, detail="Book-genre association not found")
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -326,7 +324,7 @@ async def attach_tone(
         raise HTTPException(status_code=404, detail="Book not found")
     await crud.book.attach_tone(db, book_id, data)
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))
 
 
@@ -336,5 +334,5 @@ async def detach_tone(book_id: int, tone_id: int, db: AsyncSession = Depends(get
     if not removed:
         raise HTTPException(status_code=404, detail="Book-tone association not found")
     count = await _trope_count(db, book_id)
-    if count >= TROPE_THRESHOLD:
+    if count >= settings.TROPE_THRESHOLD:
         asyncio.create_task(_embed_in_background(book_id))

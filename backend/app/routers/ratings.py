@@ -27,6 +27,26 @@ async def get_my_rating(
 async def _embed_reviews_in_background(book_id: int) -> None:
     async with AsyncSessionLocal() as db:
         try:
+            from sqlalchemy import func as sa_func
+            from app.config import settings
+            from app.models.book import Book
+            from app.models.book_rating import BookRating
+
+            count_q = await db.execute(
+                select(sa_func.count()).select_from(BookRating).where(
+                    BookRating.book_id == book_id,
+                    BookRating.review_text.is_not(None),
+                    BookRating.review_text != "",
+                )
+            )
+            current_count = count_q.scalar_one()
+
+            book = await db.get(Book, book_id)
+            if book is None:
+                return
+            if current_count - book.review_embed_count < settings.REVIEW_EMBED_BATCH_SIZE:
+                return
+
             await embed_reviews_for_book(book_id, db)
         except Exception:
             pass  # review embedding is best-effort; never fail a rating save

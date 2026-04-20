@@ -21,18 +21,19 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Area | Status |
 |---|---|
 | Backend API | Feature-complete — all routes functional |
-| Database schema | Stable (23 migrations applied) |
-| Embedding pipeline | Working — three-stream BGE via FastEmbed; description always embedded, genome gated at ≥ 3 tropes |
+| Database schema | Stable (25 migrations applied) |
+| Embedding pipeline | Working — three-stream BGE via FastEmbed; description always embedded, genome gated at ≥ 3 tropes; review embed batched at every 5 new reviews |
 | Vibe/semantic search | Working — alpha-blended genome + description (`GET /search`) |
 | Hybrid search | Working — RRF combining PostgreSQL full-text + BGE description cosine (`POST /search/hybrid`) |
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed, public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language filters |
-| Admin dashboard | Working — embed-all with stall detection + crash recovery, fetch-covers, vector coverage panel |
+| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language filters, crowd-tagged badges |
+| Admin dashboard | Working — embed-all (incl. description backfill), stall detection + crash recovery, fetch-covers, vector coverage panel with genome-eligible stat |
+| Crowd promotion | Working — user trope/archetype tags promoted to canonical at N≥3 users; median weight; dominant-anchor rule; ratchet (no auto-demotion); archetypes supported |
 | Auth | Working via Supabase JWT; AuthContext race condition fixed |
 | E2E Testing | **57 tests** — Playwright across public/user/admin projects; 56 pass, 1 skip (all green) |
-| Unit Testing | Minimal — pytest scaffolded, not comprehensive |
+| Unit Testing | Minimal — pytest scaffolded; crowd promotion tests rewritten for Phase 3 design |
 | Deployment | Docker Compose config added (`docker-compose.yml`) |
 | Data ingestion | **`backend/webscraper/`** — Open Library scraper (10,020 books scraped); `import_tagged_books.py` — tagged books import; **648 books tagged and live** |
 

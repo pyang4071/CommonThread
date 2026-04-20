@@ -166,11 +166,13 @@ export type Archetype = {
 export type BookTropeEntry = {
   trope: Trope
   weight: number
+  is_crowd_promoted: boolean
 }
 
 export type CharacterDNAEntry = {
   archetype: Archetype
   importance: number
+  is_crowd_promoted: boolean
 }
 
 export type BookDetail = Book & {

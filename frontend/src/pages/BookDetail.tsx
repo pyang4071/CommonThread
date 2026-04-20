@@ -472,13 +472,13 @@ export function BookDetail() {
             <p className="text-gray-400 text-sm">No tropes tagged yet.</p>
           ) : (
             <div className="space-y-4">
-              {sortedTropes.map(({ trope, weight }) => {
+              {sortedTropes.map(({ trope, weight, is_crowd_promoted }) => {
                 const badgeClass =
                   CATEGORY_COLORS[trope.category] ?? 'bg-gray-100 text-gray-600'
                 return (
                   <div key={trope.trope_id} className="bg-white border border-gray-200 rounded-lg p-4">
                     <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <Link
                           to={`/tropes/${trope.trope_id}`}
                           className="font-medium text-gray-800 hover:text-indigo-600 transition-colors"
@@ -486,10 +486,15 @@ export function BookDetail() {
                           {trope.name}
                         </Link>
                         <span
-                          className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${badgeClass}`}
                         >
                           {trope.category}
                         </span>
+                        {is_crowd_promoted && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                            crowd-tagged
+                          </span>
+                        )}
                       </div>
                     </div>
                     {trope.description && (
@@ -515,15 +520,22 @@ export function BookDetail() {
             <p className="text-gray-400 text-sm">No archetypes tagged yet.</p>
           ) : (
             <div className="space-y-4">
-              {sortedDNA.map(({ archetype, importance }) => (
+              {sortedDNA.map(({ archetype, importance, is_crowd_promoted }) => (
                 <div key={archetype.archetype_id} className="bg-white border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <Link
-                      to={`/archetypes/${archetype.archetype_id}`}
-                      className="font-medium text-gray-800 hover:text-indigo-600 transition-colors"
-                    >
-                      {archetype.name}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link
+                        to={`/archetypes/${archetype.archetype_id}`}
+                        className="font-medium text-gray-800 hover:text-indigo-600 transition-colors"
+                      >
+                        {archetype.name}
+                      </Link>
+                      {is_crowd_promoted && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                          crowd-tagged
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-400">{importance}/10</span>
                   </div>
                   {archetype.description && (

@@ -50,6 +50,7 @@ class Book(Base):
     description_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     review_embedding: Mapped[list[float] | None] = mapped_column(Vector(768), nullable=True)
     embedding_status: Mapped[str] = mapped_column(default="pending", server_default="pending")
+    review_embed_count: Mapped[int] = mapped_column(default=0, server_default="0")
     series_id: Mapped[int | None] = mapped_column(
         ForeignKey("series.series_id", ondelete="SET NULL"), nullable=True
     )

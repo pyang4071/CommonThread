@@ -3,7 +3,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import require_admin
@@ -143,7 +143,13 @@ async def embed_all(db: AsyncSession = Depends(get_db), _: AppUser = Depends(req
     """
     result = await db.execute(
         select(Book.book_id)
-        .where(Book.embedding_status != "done")
+        .where(
+            or_(
+                Book.embedding_status != "done",
+                and_(Book.description.is_not(None), Book.description_embedding.is_(None)),
+            )
+        )
+        .where(Book.deleted_at.is_(None))
     )
     book_ids = list(result.scalars().all())
     if not book_ids:

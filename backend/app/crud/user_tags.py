@@ -1,65 +1,45 @@
 """
 CRUD for per-user book tags (user_book_tropes, user_book_archetypes).
 
-Personal tags only affect the tagging user's recommendation preference vector.
-When enough users independently tag the same trope on a book, the tag is
-promoted to the canonical book_tropes table and can trigger a genome embedding.
-
 Promotion rules (tropes):
-  - ≥ MIN_USERS_FOR_PROMOTION distinct users tagged the same (book_id, trope_id)
-  - avg weight across those tags ≥ MIN_AVG_WEIGHT_FOR_PROMOTION
-  - no admin-set (is_crowd_promoted=False) tag exists for this pair
+  - ≥ CROWD_PROMOTION_THRESHOLD distinct users tagged the same (book_id, trope_id)
+  - median weight across those tags ≥ MIN_MEDIAN_WEIGHT (0.4)
+  - if no canonical dominant trope (weight ≥ 0.65) exists yet, the promoted trope
+    must itself have median ≥ 0.65 to anchor the genome (decision B)
+  - admin-set tags (is_crowd_promoted=False) are never overwritten
+  - once promoted, stays canonical (ratchet) — weight recalculates on every user
+    tag change; admin removes via DELETE /books/{id}/tropes/{trope_id}
 
-Demotion:
-  - When a user removes a tag and the support drops below MIN_USERS_FOR_PROMOTION,
-    the crowd-promoted book_tropes row is removed.
-  - If canonical trope count then drops below TROPE_THRESHOLD, genome_embedding
-    is cleared and embedding_status reset to 'pending'.
+Promotion rules (archetypes):
+  - same threshold N, median importance ≥ MIN_MEDIAN_IMPORTANCE (5)
+  - no dominant-analogue check
 """
 import asyncio
 import logging
 import uuid
 from collections import defaultdict
+from statistics import median
 
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.book_trope import BookTrope
+from app.models.character_dna import CharacterDNA
 from app.models.user_book_archetype import UserBookArchetype
 from app.models.user_book_trope import UserBookTrope
 from app.schemas.user_tags import UserArchetypeAttach, UserTropeAttach
 
 logger = logging.getLogger(__name__)
 
-MIN_USERS_FOR_PROMOTION: int = 3
-MIN_AVG_WEIGHT_FOR_PROMOTION: float = 0.4
-TROPE_THRESHOLD: int = 3  # mirrors books.py constant
+MIN_MEDIAN_WEIGHT: float = 0.4
+DOMINANT_WEIGHT_THRESHOLD: float = 0.65
+MIN_MEDIAN_IMPORTANCE: int = 5
 
 
-async def get_user_tags(
-    db: AsyncSession, user_id: uuid.UUID, book_id: int
-) -> tuple[list[UserBookTrope], list[UserBookArchetype]]:
-    tropes_q, archetypes_q = await _fetch_for_book(db, user_id, book_id)
-    return tropes_q, archetypes_q
-
-
-async def _fetch_for_book(
-    db: AsyncSession, user_id: uuid.UUID, book_id: int
-) -> tuple[list[UserBookTrope], list[UserBookArchetype]]:
-    t_result = await db.execute(
-        select(UserBookTrope).where(
-            UserBookTrope.user_id == user_id,
-            UserBookTrope.book_id == book_id,
-        )
-    )
-    a_result = await db.execute(
-        select(UserBookArchetype).where(
-            UserBookArchetype.user_id == user_id,
-            UserBookArchetype.book_id == book_id,
-        )
-    )
-    return list(t_result.scalars().all()), list(a_result.scalars().all())
-
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 async def _canonical_trope_count(db: AsyncSession, book_id: int) -> int:
     result = await db.execute(
@@ -68,100 +48,238 @@ async def _canonical_trope_count(db: AsyncSession, book_id: int) -> int:
     return result.scalar_one()
 
 
-async def promote_user_trope_to_canonical(
-    db: AsyncSession, book_id: int, trope_id: int
-) -> bool:
-    """
-    Promote a user-tagged trope to canonical (book_tropes) when crowd consensus
-    is reached. Returns True if a promotion occurred.
+async def _trigger_genome_embed(book_id: int) -> None:
+    from app.config import settings
+    from app.database.engine import AsyncSessionLocal
+    from app.services.embedding import embed_book
 
-    Rules:
-    - ≥ MIN_USERS_FOR_PROMOTION distinct users tagged this (book_id, trope_id)
-    - avg weight ≥ MIN_AVG_WEIGHT_FOR_PROMOTION
-    - no admin tag (is_crowd_promoted=False) exists for this pair (admin wins)
-    """
-    # Check existing canonical tag
-    existing_bt = await db.get(BookTrope, (book_id, trope_id))
-    if existing_bt is not None and not existing_bt.is_crowd_promoted:
-        return False  # admin-set tag takes precedence
+    count = await _get_canonical_trope_count_bg(book_id)
+    if count < settings.TROPE_THRESHOLD:
+        return
 
-    # Aggregate user tags for this (book_id, trope_id)
-    agg_q = await db.execute(
-        select(
-            func.count(UserBookTrope.user_id.distinct()).label("user_count"),
-            func.avg(UserBookTrope.weight).label("avg_weight"),
-        ).where(
+    async def _run(bid: int) -> None:
+        async with AsyncSessionLocal() as bg_db:
+            try:
+                await embed_book(bid, bg_db)
+            except Exception:
+                logger.exception("Genome embed failed for book %d after crowd promotion", bid)
+
+    asyncio.create_task(_run(book_id))
+
+
+async def _get_canonical_trope_count_bg(book_id: int) -> int:
+    from app.database.engine import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(func.count()).select_from(BookTrope).where(BookTrope.book_id == book_id)
+        )
+        return result.scalar_one()
+
+
+# ---------------------------------------------------------------------------
+# Trope promotion / weight update
+# ---------------------------------------------------------------------------
+
+async def _promote_or_update_trope(db: AsyncSession, book_id: int, trope_id: int) -> bool:
+    """
+    Check crowd consensus for (book_id, trope_id) and promote to canonical if
+    threshold is met. If a crowd-promoted row already exists but count is below
+    threshold, update its weight to the new median (ratchet).
+
+    Returns True if a canonical row was inserted or its weight changed — the
+    caller should then trigger re-embedding.
+    """
+    from app.config import settings
+
+    existing = await db.get(BookTrope, (book_id, trope_id))
+
+    # Admin-set tag takes precedence; never overwrite it
+    if existing is not None and not existing.is_crowd_promoted:
+        return False
+
+    weights_q = await db.execute(
+        select(UserBookTrope.weight).where(
             UserBookTrope.book_id == book_id,
             UserBookTrope.trope_id == trope_id,
         )
     )
-    row = agg_q.one()
-    user_count: int = row.user_count or 0
-    avg_weight: float = float(row.avg_weight or 0.0)
+    user_weights = [float(w) for w in weights_q.scalars().all()]
 
-    if user_count < MIN_USERS_FOR_PROMOTION or avg_weight < MIN_AVG_WEIGHT_FOR_PROMOTION:
+    if len(user_weights) < settings.CROWD_PROMOTION_THRESHOLD:
+        # Below threshold — ratchet: update weight if a crowd row already exists
+        if existing is not None and existing.is_crowd_promoted and user_weights:
+            new_med = round(median(user_weights), 4)
+            if new_med != existing.weight:
+                existing.weight = new_med
+                await db.commit()
+                return True
         return False
 
-    # Upsert the crowd-promoted canonical tag
-    if existing_bt is None:
-        existing_bt = BookTrope(
-            book_id=book_id,
-            trope_id=trope_id,
-            weight=round(avg_weight, 4),
-            is_crowd_promoted=True,
-        )
-        db.add(existing_bt)
-    else:
-        existing_bt.weight = round(avg_weight, 4)
+    med_weight = round(median(user_weights), 4)
 
+    if med_weight < MIN_MEDIAN_WEIGHT:
+        return False
+
+    # Dominant anchor check (decision B): if no dominant canonical trope exists
+    # yet, the promoted trope must itself be dominant (≥ 0.65)
+    dominant_q = await db.execute(
+        select(BookTrope.book_id).where(
+            BookTrope.book_id == book_id,
+            BookTrope.trope_id != trope_id,
+            BookTrope.weight >= DOMINANT_WEIGHT_THRESHOLD,
+        ).limit(1)
+    )
+    has_dominant = dominant_q.scalar_one_or_none() is not None
+
+    if not has_dominant and med_weight < DOMINANT_WEIGHT_THRESHOLD:
+        return False
+
+    # Atomic upsert: ON CONFLICT handles the concurrency race; the WHERE clause
+    # ensures admin rows are never clobbered even if they race with this upsert
+    stmt = (
+        pg_insert(BookTrope)
+        .values(book_id=book_id, trope_id=trope_id, weight=med_weight, is_crowd_promoted=True)
+        .on_conflict_do_update(
+            index_elements=["book_id", "trope_id"],
+            set_={"weight": med_weight},
+            where=BookTrope.__table__.c.is_crowd_promoted.is_(True),
+        )
+    )
+    await db.execute(stmt)
     await db.commit()
     logger.info(
-        "Promoted trope %d on book %d to canonical (users=%d, avg_weight=%.3f)",
-        trope_id, book_id, user_count, avg_weight,
+        "Crowd-promoted trope %d on book %d (n=%d, median_weight=%.4f)",
+        trope_id, book_id, len(user_weights), med_weight,
     )
     return True
 
 
-async def demote_user_trope_if_needed(
-    db: AsyncSession, book_id: int, trope_id: int
-) -> None:
+async def _update_crowd_trope_weight(db: AsyncSession, book_id: int, trope_id: int) -> bool:
     """
-    After a user removes a trope tag, check whether the crowd-promoted canonical
-    tag should be revoked. If the remaining user count drops below the threshold,
-    remove the book_tropes row (crowd-promoted only) and reset the genome
-    embedding if the canonical trope count drops below TROPE_THRESHOLD.
+    After a user removes their trope tag: recalculate median from remaining
+    user tags and update the canonical crowd-promoted weight if it changed.
+    Returns True if the weight changed (caller triggers re-embed).
     """
     canonical = await db.get(BookTrope, (book_id, trope_id))
     if canonical is None or not canonical.is_crowd_promoted:
-        return  # nothing to demote
+        return False
 
-    count_q = await db.execute(
-        select(func.count(UserBookTrope.user_id.distinct())).where(
+    weights_q = await db.execute(
+        select(UserBookTrope.weight).where(
             UserBookTrope.book_id == book_id,
             UserBookTrope.trope_id == trope_id,
         )
     )
-    remaining = count_q.scalar_one() or 0
+    user_weights = [float(w) for w in weights_q.scalars().all()]
 
-    if remaining < MIN_USERS_FOR_PROMOTION:
-        await db.delete(canonical)
-        await db.flush()
+    if not user_weights:
+        # All user tags removed but ratchet keeps the canonical row; leave weight as-is
+        return False
 
-        # Check if canonical trope count dropped below threshold
-        new_count = await _canonical_trope_count(db, book_id)
-        if new_count < TROPE_THRESHOLD:
-            from app.models.book import Book
-            book = await db.get(Book, book_id)
-            if book and book.embedding_status != "pending":
-                book.genome_embedding = None
-                book.embedding_status = "pending"
-                logger.info(
-                    "Book %d dropped below trope threshold after demotion — genome cleared",
-                    book_id,
-                )
+    new_med = round(median(user_weights), 4)
+    if new_med == canonical.weight:
+        return False
 
-        await db.commit()
+    canonical.weight = new_med
+    await db.commit()
+    return True
 
+
+# ---------------------------------------------------------------------------
+# Archetype promotion / importance update
+# ---------------------------------------------------------------------------
+
+async def _promote_or_update_archetype(db: AsyncSession, book_id: int, archetype_id: int) -> bool:
+    """
+    Mirror of _promote_or_update_trope for character_dna / user_book_archetypes.
+    No dominant-anchor check — all archetypes are peers in the genome.
+    """
+    from app.config import settings
+
+    existing = await db.get(CharacterDNA, (book_id, archetype_id))
+
+    if existing is not None and not existing.is_crowd_promoted:
+        return False
+
+    importances_q = await db.execute(
+        select(UserBookArchetype.importance).where(
+            UserBookArchetype.book_id == book_id,
+            UserBookArchetype.archetype_id == archetype_id,
+        )
+    )
+    user_importances = [int(i) for i in importances_q.scalars().all()]
+
+    if len(user_importances) < settings.CROWD_PROMOTION_THRESHOLD:
+        if existing is not None and existing.is_crowd_promoted and user_importances:
+            new_med = round(median(user_importances))
+            if new_med != existing.importance:
+                existing.importance = new_med
+                await db.commit()
+                return True
+        return False
+
+    med_importance = round(median(user_importances))
+
+    if med_importance < MIN_MEDIAN_IMPORTANCE:
+        return False
+
+    stmt = (
+        pg_insert(CharacterDNA)
+        .values(
+            book_id=book_id,
+            archetype_id=archetype_id,
+            importance=med_importance,
+            is_crowd_promoted=True,
+        )
+        .on_conflict_do_update(
+            index_elements=["book_id", "archetype_id"],
+            set_={"importance": med_importance},
+            where=CharacterDNA.__table__.c.is_crowd_promoted.is_(True),
+        )
+    )
+    await db.execute(stmt)
+    await db.commit()
+    logger.info(
+        "Crowd-promoted archetype %d on book %d (n=%d, median_importance=%d)",
+        archetype_id, book_id, len(user_importances), med_importance,
+    )
+    return True
+
+
+async def _update_crowd_archetype_importance(
+    db: AsyncSession, book_id: int, archetype_id: int
+) -> bool:
+    """
+    After a user removes their archetype tag: recalculate median importance and
+    update the canonical crowd-promoted row if it changed.
+    """
+    canonical = await db.get(CharacterDNA, (book_id, archetype_id))
+    if canonical is None or not canonical.is_crowd_promoted:
+        return False
+
+    importances_q = await db.execute(
+        select(UserBookArchetype.importance).where(
+            UserBookArchetype.book_id == book_id,
+            UserBookArchetype.archetype_id == archetype_id,
+        )
+    )
+    user_importances = [int(i) for i in importances_q.scalars().all()]
+
+    if not user_importances:
+        return False
+
+    new_med = round(median(user_importances))
+    if new_med == canonical.importance:
+        return False
+
+    canonical.importance = new_med
+    await db.commit()
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Public CRUD — tropes
+# ---------------------------------------------------------------------------
 
 async def upsert_user_trope(
     db: AsyncSession, user_id: uuid.UUID, book_id: int, data: UserTropeAttach
@@ -177,23 +295,9 @@ async def upsert_user_trope(
     await db.commit()
     await db.refresh(existing)
 
-    # Check for promotion after every tag upsert
-    promoted = await promote_user_trope_to_canonical(db, book_id, data.trope_id)
-    if promoted:
-        count = await _canonical_trope_count(db, book_id)
-        if count >= TROPE_THRESHOLD:
-            # Trigger genome embedding — same background task pattern as books.py
-            from app.database.engine import AsyncSessionLocal
-            from app.services.embedding import embed_book
-
-            async def _embed_genome(bid: int) -> None:
-                async with AsyncSessionLocal() as bg_db:
-                    try:
-                        await embed_book(bid, bg_db)
-                    except Exception:
-                        logger.exception("Genome embed failed for book %d after trope promotion", bid)
-
-            asyncio.create_task(_embed_genome(book_id))
+    changed = await _promote_or_update_trope(db, book_id, data.trope_id)
+    if changed:
+        await _trigger_genome_embed(book_id)
 
     return existing
 
@@ -206,9 +310,17 @@ async def remove_user_trope(
         return False
     await db.delete(entry)
     await db.commit()
-    await demote_user_trope_if_needed(db, book_id, trope_id)
+
+    weight_changed = await _update_crowd_trope_weight(db, book_id, trope_id)
+    if weight_changed:
+        await _trigger_genome_embed(book_id)
+
     return True
 
+
+# ---------------------------------------------------------------------------
+# Public CRUD — archetypes
+# ---------------------------------------------------------------------------
 
 async def upsert_user_archetype(
     db: AsyncSession, user_id: uuid.UUID, book_id: int, data: UserArchetypeAttach
@@ -226,6 +338,11 @@ async def upsert_user_archetype(
         db.add(existing)
     await db.commit()
     await db.refresh(existing)
+
+    changed = await _promote_or_update_archetype(db, book_id, data.archetype_id)
+    if changed:
+        await _trigger_genome_embed(book_id)
+
     return existing
 
 
@@ -237,16 +354,40 @@ async def remove_user_archetype(
         return False
     await db.delete(entry)
     await db.commit()
+
+    importance_changed = await _update_crowd_archetype_importance(db, book_id, archetype_id)
+    if importance_changed:
+        await _trigger_genome_embed(book_id)
+
     return True
+
+
+# ---------------------------------------------------------------------------
+# Read helpers
+# ---------------------------------------------------------------------------
+
+async def get_user_tags(
+    db: AsyncSession, user_id: uuid.UUID, book_id: int
+) -> tuple[list[UserBookTrope], list[UserBookArchetype]]:
+    t_result = await db.execute(
+        select(UserBookTrope).where(
+            UserBookTrope.user_id == user_id,
+            UserBookTrope.book_id == book_id,
+        )
+    )
+    a_result = await db.execute(
+        select(UserBookArchetype).where(
+            UserBookArchetype.user_id == user_id,
+            UserBookArchetype.book_id == book_id,
+        )
+    )
+    return list(t_result.scalars().all()), list(a_result.scalars().all())
 
 
 async def get_all_tags_by_book(
     db: AsyncSession, user_id: uuid.UUID
 ) -> list[dict]:
-    """
-    Return all of a user's personal tags, grouped by book.
-    Each entry: {"book": Book, "tropes": [...], "archetypes": [...]}
-    """
+    """Return all of a user's personal tags, grouped by book."""
     from app.models.book import Book
     from sqlalchemy import select as sa_select
 
@@ -293,11 +434,7 @@ async def get_aggregated_taste(
 ) -> tuple[list[tuple[str, float]], list[tuple[str, int]]]:
     """
     Aggregate all of a user's personal tags across all books.
-
-    Returns:
-        tropes    — list of (trope_name, avg_weight) sorted by avg_weight desc
-        archetypes — list of (archetype_name, avg_importance) sorted desc
-
+    Returns (tropes, archetypes) sorted by weight/importance desc.
     Used by the recommendation engine to build the user taste vector.
     """
     t_result = await db.execute(
@@ -310,7 +447,6 @@ async def get_aggregated_taste(
     )
     all_archetypes = list(a_result.scalars().all())
 
-    # Average weights per trope across all tagged books
     trope_weights: dict[str, list[float]] = defaultdict(list)
     for ubt in all_tropes:
         trope_weights[ubt.trope.name].append(ubt.weight)
