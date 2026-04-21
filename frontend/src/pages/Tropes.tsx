@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Trope } from '../api/client'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { useAuth } from '../contexts/AuthContext'
 
 const EMPTY = { name: '', description: '', category: '' }
@@ -23,6 +24,7 @@ export function Tropes() {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [tropeToDelete, setTropeToDelete] = useState<Trope | null>(null)
 
   const load = () =>
     api.tropes.list().then(setTropes).catch((e) => setError(e.message)).finally(() => setLoading(false))
@@ -140,7 +142,7 @@ export function Tropes() {
                 {isAdmin && (
                   <div className="mt-auto pt-1 flex justify-end">
                     <button
-                      onClick={() => remove(trope)}
+                      onClick={() => setTropeToDelete(trope)}
                       className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                     >
                       Delete
@@ -151,6 +153,15 @@ export function Tropes() {
             )
           })}
         </div>
+      )}
+      {tropeToDelete && (
+        <ConfirmModal
+          title="Delete trope"
+          message={`Delete "${tropeToDelete.name}"? This will remove it from all books and trigger re-embedding.`}
+          confirmLabel="Delete"
+          onConfirm={() => { remove(tropeToDelete); setTropeToDelete(null) }}
+          onCancel={() => setTropeToDelete(null)}
+        />
       )}
     </div>
   )

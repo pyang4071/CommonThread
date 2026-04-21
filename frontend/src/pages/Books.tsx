@@ -313,6 +313,8 @@ export function Books() {
       exclude_genre_ids: sharedFilterParams.excludeGenreIds,
       exclude_book_type_ids: sharedFilterParams.excludeBookTypeIds,
       exclude_tone_ids: sharedFilterParams.excludeToneIds,
+      page_count_min: sharedFilterParams.pageCountMin,
+      page_count_max: sharedFilterParams.pageCountMax,
     })
       .then(results => { setHybridResults(results); setHybridLoading(false) })
       .catch((e: unknown) => {

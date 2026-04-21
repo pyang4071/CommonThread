@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype } from '../api/client'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { useAuth } from '../contexts/AuthContext'
 
 const EMPTY = { name: '', description: '' }
@@ -14,6 +15,7 @@ export function Archetypes() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [archetypeToDelete, setArchetypeToDelete] = useState<Archetype | null>(null)
 
   const load = () =>
     api.archetypes.list().then(setArchetypes).catch((e) => setError(e.message)).finally(() => setLoading(false))
@@ -110,7 +112,7 @@ export function Archetypes() {
               {isAdmin && (
                 <div className="mt-auto pt-1 flex justify-end">
                   <button
-                    onClick={() => remove(arch)}
+                    onClick={() => setArchetypeToDelete(arch)}
                     className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                   >
                     Delete
@@ -120,6 +122,15 @@ export function Archetypes() {
             </div>
           ))}
         </div>
+      )}
+      {archetypeToDelete && (
+        <ConfirmModal
+          title="Delete archetype"
+          message={`Delete "${archetypeToDelete.name}"? This will remove it from all books and trigger re-embedding.`}
+          confirmLabel="Delete"
+          onConfirm={() => { remove(archetypeToDelete); setArchetypeToDelete(null) }}
+          onCancel={() => setArchetypeToDelete(null)}
+        />
       )}
     </div>
   )

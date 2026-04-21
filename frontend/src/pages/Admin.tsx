@@ -3,10 +3,10 @@ import { api } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 
 type EmbedStatus = { total: number; done: number; pending: number; failed: number }
-type VectorCoverage = { total: number; both: number; description_only: number; neither: number; genome_eligible: number }
+type VectorCoverage = { total: number; both: number; description_only: number; neither: number; genome_eligible: number; review_embedded: number }
 type HealthStatus = { status: string; models: { genome: string; description: string; review: string } }
 
-function CoverageBar({ both, description_only, neither, total, genome_eligible }: VectorCoverage) {
+function CoverageBar({ both, description_only, neither, total, genome_eligible, review_embedded }: VectorCoverage) {
   if (total === 0) return <p className="text-sm text-gray-400">No books yet.</p>
   const bothPct = (both / total) * 100
   const descPct = (description_only / total) * 100
@@ -42,6 +42,13 @@ function CoverageBar({ both, description_only, neither, total, genome_eligible }
           <span className="text-xs text-gray-500 font-medium">Neither</span>
           <span className="text-xl font-semibold text-gray-600">{neither.toLocaleString()}</span>
           <span className="text-xs text-gray-400">{Math.round(neitherPct)}% of {total.toLocaleString()} books</span>
+        </div>
+        <div className="flex flex-col gap-0.5 p-3 rounded-lg bg-sky-50 border border-sky-100 col-span-2">
+          <span className="text-xs text-sky-600 font-medium">Review-embedded</span>
+          <span className="text-xl font-semibold text-sky-700">{review_embedded.toLocaleString()}</span>
+          <span className="text-xs text-sky-500">
+            {total > 0 ? Math.round((review_embedded / total) * 100) : 0}% of books · blended into recommendation scoring
+          </span>
         </div>
       </div>
     </div>
