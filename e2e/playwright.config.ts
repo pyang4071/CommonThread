@@ -44,6 +44,7 @@ export default defineConfig({
         '**/7-my-tags.spec.ts',
         '**/8-friends.spec.ts',
         '**/9-profile.spec.ts',
+        '**/12-phase5-user.spec.ts',
       ],
     },
 
@@ -57,6 +58,7 @@ export default defineConfig({
       testMatch: [
         '**/10-admin.spec.ts',
         '**/11-tagging-threshold.spec.ts',
+        '**/12-phase5-admin.spec.ts',
       ],
     },
   ],

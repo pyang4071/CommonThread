@@ -66,14 +66,25 @@ app.include_router(dislikes_router, prefix=API_PREFIX)
 app.include_router(user_tags_router, prefix=API_PREFIX)
 
 
-@app.get("/health")
-async def health():
+def _health_response() -> dict:
     genome_ready = _get_genome_model.cache_info().currsize > 0
     desc_ready = _get_description_model.cache_info().currsize > 0
+    model_status = "ready" if desc_ready else "loading"
     return {
         "status": "ok",
         "models": {
             "genome": "ready" if genome_ready else "loading",
-            "description": "ready" if desc_ready else "loading",
+            "description": model_status,
+            "review": model_status,  # review uses the same model as description
         },
     }
+
+
+@app.get("/health")
+async def health():
+    return _health_response()
+
+
+@app.get(f"{API_PREFIX}/health")
+async def health_v1():
+    return _health_response()
