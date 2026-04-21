@@ -41,10 +41,10 @@
 
 ## Progress Checklist
 
-- [ ] Bug 1 — page count in hybrid search (backend schema + CRUD + client + Books.tsx)
-- [ ] Bug 2 — page count in semantic search (backend route + client)
-- [ ] Feature 3 — review coverage stat in admin panel
-- [ ] Feature 4 — confirm modal on trope/archetype delete
-- [ ] Feature 5 — Railway/Vercel deployment guide in README
-- [ ] Test 6 — E2E specs for Phase 3/4
-- [ ] Test 7 — backend unit tests for new scoring + search logic
+- [x] Bug 1 — page count in hybrid search (backend schema + CRUD + client + Books.tsx)
+- [x] Bug 2 — page count in semantic search (backend route + client)
+- [x] Feature 3 — review coverage stat in admin panel
+- [x] Feature 4 — confirm modal on trope/archetype delete
+- [x] Feature 5 — Railway/Vercel deployment guide in README
+- [x] Test 6 — E2E specs for Phase 3/4 (`e2e/tests/12-phase5.spec.ts`)
+- [x] Test 7 — backend unit tests (`tests/test_review_scoring.py`, `tests/test_search_filters.py`)
