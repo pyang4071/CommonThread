@@ -37,6 +37,8 @@ async def semantic_search(
     categories: list[str] = Query(default=[]),
     exclude_trope_ids: list[int] = Query(default=[]),
     exclude_archetype_ids: list[int] = Query(default=[]),
+    page_count_min: int | None = None,
+    page_count_max: int | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -112,6 +114,10 @@ async def semantic_search(
                 select(CharacterDNA.book_id).where(CharacterDNA.archetype_id.in_(exclude_archetype_ids))
             )
         )
+    if page_count_min is not None:
+        stmt = stmt.where(Book.page_count >= page_count_min)
+    if page_count_max is not None:
+        stmt = stmt.where(Book.page_count <= page_count_max)
 
     await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
     result = await db.execute(stmt.order_by("distance").limit(limit))
@@ -156,6 +162,9 @@ class HybridSearchRequest(BaseModel):
     exclude_genre_ids: list[int] = []
     exclude_book_type_ids: list[int] = []
     exclude_tone_ids: list[int] = []
+    # range filters
+    page_count_min: int | None = None
+    page_count_max: int | None = None
 
 
 @router.post("/hybrid", response_model=list[HybridResult])
@@ -198,4 +207,6 @@ async def hybrid_search_endpoint(
         exclude_genre_ids=body.exclude_genre_ids,
         exclude_book_type_ids=body.exclude_book_type_ids,
         exclude_tone_ids=body.exclude_tone_ids,
+        page_count_min=body.page_count_min,
+        page_count_max=body.page_count_max,
     )

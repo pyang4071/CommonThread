@@ -40,6 +40,7 @@ class VectorCoverageResult(BaseModel):
     description_only: int
     neither: int
     genome_eligible: int  # books with >= 3 canonical tropes (could have genome embedding)
+    review_embedded: int  # books with a review_embedding populated
 
 
 async def _embed_book_safe(book_id: int, max_attempts: int = 3) -> None:
@@ -121,6 +122,9 @@ async def vector_coverage(db: AsyncSession = Depends(get_db), _: AppUser = Depen
             func.count(1).filter(
                 Book.book_id.in_(eligible_book_ids),
             ).label("genome_eligible"),
+            func.count(1).filter(
+                Book.review_embedding.is_not(None),
+            ).label("review_embedded"),
         ).where(Book.deleted_at.is_(None))
     )).one()
     return VectorCoverageResult(
@@ -129,6 +133,7 @@ async def vector_coverage(db: AsyncSession = Depends(get_db), _: AppUser = Depen
         description_only=row.description_only,
         neither=row.neither,
         genome_eligible=row.genome_eligible,
+        review_embedded=row.review_embedded,
     )
 
 

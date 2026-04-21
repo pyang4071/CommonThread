@@ -62,6 +62,8 @@ def _apply_filters(
     exclude_genre_ids: list[int],
     exclude_book_type_ids: list[int],
     exclude_tone_ids: list[int],
+    page_count_min: int | None = None,
+    page_count_max: int | None = None,
 ):
     """Apply all shared filter predicates to a select statement."""
     if genre_ids:
@@ -122,6 +124,10 @@ def _apply_filters(
                 select(book_tones.c.book_id).where(book_tones.c.tone_id.in_(exclude_tone_ids))
             )
         )
+    if page_count_min is not None:
+        stmt = stmt.where(Book.page_count >= page_count_min)
+    if page_count_max is not None:
+        stmt = stmt.where(Book.page_count <= page_count_max)
     return stmt
 
 
@@ -203,6 +209,8 @@ async def hybrid_search(
     exclude_genre_ids: list[int] | None = None,
     exclude_book_type_ids: list[int] | None = None,
     exclude_tone_ids: list[int] | None = None,
+    page_count_min: int | None = None,
+    page_count_max: int | None = None,
 ) -> list[HybridResult]:
     filter_kwargs = dict(
         genre_ids=genre_ids or [],
@@ -215,6 +223,8 @@ async def hybrid_search(
         exclude_genre_ids=exclude_genre_ids or [],
         exclude_book_type_ids=exclude_book_type_ids or [],
         exclude_tone_ids=exclude_tone_ids or [],
+        page_count_min=page_count_min,
+        page_count_max=page_count_max,
     )
 
     # Run legs sequentially — asyncio sessions don't support concurrent ops on the same session

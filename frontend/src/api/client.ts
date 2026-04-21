@@ -226,6 +226,8 @@ export type HybridSearchRequest = {
   exclude_genre_ids?: number[]
   exclude_book_type_ids?: number[]
   exclude_tone_ids?: number[]
+  page_count_min?: number
+  page_count_max?: number
 }
 
 export type ReadingStatus = {
@@ -455,7 +457,7 @@ export const api = {
     vectorCoverage: (token: string) =>
       authedFetch('GET', '/admin/vector-coverage', token).then(r => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
-        return r.json() as Promise<{ total: number; both: number; description_only: number; neither: number; genome_eligible: number }>
+        return r.json() as Promise<{ total: number; both: number; description_only: number; neither: number; genome_eligible: number; review_embedded: number }>
       }),
     embedAll: (token: string) =>
       authedFetch('POST', '/admin/embed-all', token, {}).then(r => {
@@ -509,6 +511,8 @@ export const api = {
       categories?: string[]
       excludeTropeIds?: number[]
       excludeArchetypeIds?: number[]
+      pageCountMin?: number
+      pageCountMax?: number
     }) => {
       const qs = new URLSearchParams({ q, limit: String(limit), alpha: String(alpha) })
       for (const id of filters?.genreIds ?? []) qs.append('genre_ids', String(id))
@@ -518,6 +522,8 @@ export const api = {
       for (const c of filters?.categories ?? []) qs.append('categories', c)
       for (const id of filters?.excludeTropeIds ?? []) qs.append('exclude_trope_ids', String(id))
       for (const id of filters?.excludeArchetypeIds ?? []) qs.append('exclude_archetype_ids', String(id))
+      if (filters?.pageCountMin != null) qs.set('page_count_min', String(filters.pageCountMin))
+      if (filters?.pageCountMax != null) qs.set('page_count_max', String(filters.pageCountMax))
       return get<SimilarBook[]>(`/search/?${qs.toString()}`)
     },
     hybrid: (body: HybridSearchRequest) =>

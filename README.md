@@ -506,6 +506,63 @@ Output lands in `backend/webscraper/output/`:
 
 ---
 
+## Railway + Vercel Deployment
+
+The recommended production setup: **Railway** for the backend (Docker-based), **Vercel** for the frontend (static SPA + API proxy).
+
+### Backend — Railway
+
+1. **Create a Railway project** and connect the repo.
+2. Set the **root directory** to `backend/` and the **Dockerfile path** to `backend/Dockerfile`.
+3. Add environment variables in the Railway dashboard (copy from `backend/.env.example`):
+
+```env
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_ANON_KEY=<anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+DATABASE_URL=postgresql+asyncpg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+SECRET_KEY=<random-secret>
+ENVIRONMENT=production
+CORS_ORIGINS=["https://<your-vercel-domain>.vercel.app"]
+CROWD_PROMOTION_THRESHOLD=3
+```
+
+4. Railway will build from the Dockerfile on every push to `main`. The healthcheck (`GET /health`) is automatically available.
+
+> **FastEmbed cold start**: The BGE models (~570 MB) are downloaded on first container start. Railway's persistent volume (`/root/.cache/huggingface`) avoids re-downloading on redeploy — set this as a mount in your Railway service settings.
+
+### Frontend — Vercel
+
+1. **Import the repo** into Vercel, set the **root directory** to `frontend/`.
+2. Add environment variables:
+
+```env
+VITE_SUPABASE_URL=https://<ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon-key>
+VITE_API_BASE_URL=https://<your-railway-service>.railway.app
+```
+
+3. Add a `frontend/vercel.json` to handle SPA routing and proxy API calls:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://<your-railway-service>.railway.app/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
+
+4. Update `frontend/src/api/client.ts` — change `BASE` to use the env var:
+
+```typescript
+const BASE = import.meta.env.VITE_API_BASE_URL ? `${import.meta.env.VITE_API_BASE_URL}/api/v1` : '/api/v1'
+```
+
+This keeps the dev proxy working locally (`/api/v1` → Vite proxy → `localhost:8000`) while pointing at Railway in production.
+
+---
+
 ## Docker Deployment
 
 The project ships with a `docker-compose.yml` at the repo root that builds and runs both the backend and frontend.
