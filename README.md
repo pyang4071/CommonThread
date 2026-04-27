@@ -740,7 +740,7 @@ ENVIRONMENT=development
 
 ### Frontend
 
-Supabase credentials are currently hardcoded in `src/lib/supabase.ts`. For production, move these to `.env.local` as Vite `VITE_*` variables.
+Supabase credentials are read from environment variables in `src/lib/supabase.ts` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). Copy `frontend/.env.example` to `frontend/.env.local` and fill in your Supabase project values before running `npm run dev`.
 
 ---
 

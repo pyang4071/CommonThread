@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -18,9 +18,10 @@ class BookTrope(Base):
     weight: Mapped[float]
     is_crowd_promoted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
-    book: Mapped["Book"] = relationship(back_populates="book_tropes")
-    trope: Mapped["Trope"] = relationship(back_populates="book_tropes")
+    book: Mapped["Book"] = relationship(back_populates="book_tropes", lazy="raise")
+    trope: Mapped["Trope"] = relationship(back_populates="book_tropes", lazy="raise")
 
     __table_args__ = (
         CheckConstraint("weight >= 0.0 AND weight <= 1.0", name="ck_book_tropes_weight"),
+        Index("ix_book_tropes_trope_id", "trope_id"),
     )

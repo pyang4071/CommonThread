@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -20,11 +20,12 @@ class CharacterDNA(Base):
     importance: Mapped[int]
     is_crowd_promoted: Mapped[bool] = mapped_column(default=False, server_default="FALSE")
 
-    book: Mapped["Book"] = relationship(back_populates="character_dna")
-    archetype: Mapped["Archetype"] = relationship(back_populates="character_dna")
+    book: Mapped["Book"] = relationship(back_populates="character_dna", lazy="raise")
+    archetype: Mapped["Archetype"] = relationship(back_populates="character_dna", lazy="raise")
 
     __table_args__ = (
         CheckConstraint(
             "importance >= 1 AND importance <= 10", name="ck_character_dna_importance"
         ),
+        Index("ix_character_dna_archetype_id", "archetype_id"),
     )

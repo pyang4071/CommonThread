@@ -82,7 +82,7 @@ async def list_books(
     page_count_max: int | None = None,
     language: str | None = None,
 ) -> list[Book]:
-    stmt = select(Book).distinct().where(Book.deleted_at.is_(None))
+    stmt = select(Book).where(Book.deleted_at.is_(None))
     if search:
         author_ids_subq = (
             select(Author.author_id)
