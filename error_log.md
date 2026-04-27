@@ -658,3 +658,37 @@ src/pages/Profile.tsx(294,38): error TS2345: Argument of type '{blocked_genre_id
 **Prevention**: Run `npm run build` (not just `npm run dev`) in CI or before committing frontend changes. `vite dev` does not surface type errors; `tsc -b` does.
 
 ---
+
+### 2026-04-27 — `patch("app.crud.user_tags.settings")` raises AttributeError — settings not at module level
+
+**Context**: `backend/tests/test_crowdsourcing.py` — two tests patching `settings.CROWD_PROMOTION_THRESHOLD`.
+
+**Error**:
+```
+AttributeError: <module 'app.crud.user_tags'> does not have the attribute 'settings'
+```
+
+**Root Cause**: `app/crud/user_tags.py` imports `settings` lazily — `from app.config import settings` is inside each function body, not at module level. `unittest.mock.patch("app.crud.user_tags.settings")` requires the attribute to exist at module level to replace it.
+
+**Fix**: Changed patch target from `"app.crud.user_tags.settings"` to `"app.config.settings"`. Since the lazy import re-fetches `settings` from `app.config` on each function call, patching `app.config.settings` correctly intercepts the lookup. Also added `mock_settings.TROPE_THRESHOLD = 3` alongside the threshold override so the function doesn't fail on unset attributes.
+
+**Prevention**: To patch a name that is lazily imported inside a function (`from module import name` inside the body), always patch the attribute on the **source module** (`"module.name"`), not on the importing module. Module-level imports can be patched on the importer; lazy/local imports must be patched at the source.
+
+---
+
+### 2026-04-27 — `test_does_not_touch_genome_or_status` asserted stale behavior after embedding contract change
+
+**Context**: `backend/tests/test_recommendation_engine.py::TestEmbedDescriptionOnly::test_does_not_touch_genome_or_status`
+
+**Error**:
+```
+AssertionError: assert 'done' == 'pending'
+```
+
+**Root Cause**: The test was written when `embed_description_only` was intended to be a side-effect-free helper that never touched `embedding_status`. After the April 2026 embedding contract split (see "Trope threshold blocked 6997 books" entry), `embed_description_only` was updated to set `embedding_status = "done"` — because `"done"` now means "description is embedded." The test was never updated to reflect this change.
+
+**Fix**: Updated the assertion from `assert mock_book.embedding_status == "pending"` to `assert mock_book.embedding_status == "done"`. Also updated the test docstring and method name to describe the current behavior accurately.
+
+**Prevention**: When the definition of a status field changes (especially one like `embedding_status` whose semantics shifted), grep all tests that assert on that field and update them in the same PR as the behavior change.
+
+---

@@ -152,8 +152,9 @@ class TestPromoteOrUpdateTrope:
         # Only 2 remaining users — below threshold of 3; median = 0.6
         mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.6, 0.65]))
         # Force below-threshold path by patching settings
-        with patch("app.crud.user_tags.settings") as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.CROWD_PROMOTION_THRESHOLD = 5  # set high so 3 < threshold
+            mock_settings.TROPE_THRESHOLD = 3
             mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.65]))  # 2 users
             result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 
@@ -172,8 +173,9 @@ class TestPromoteOrUpdateTrope:
         mock_db = AsyncMock()
         mock_db.get = AsyncMock(return_value=crowd_tag)
 
-        with patch("app.crud.user_tags.settings") as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.CROWD_PROMOTION_THRESHOLD = 5
+            mock_settings.TROPE_THRESHOLD = 3
             mock_db.execute = AsyncMock(return_value=_weights_result([0.55, 0.65]))
             result = await _promote_or_update_trope(mock_db, book_id=1, trope_id=10)
 

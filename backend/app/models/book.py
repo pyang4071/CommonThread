@@ -59,10 +59,10 @@ class Book(Base):
     author: Mapped["Author"] = relationship(back_populates="books", lazy="joined")
     series: Mapped["Series | None"] = relationship(back_populates="books", lazy="joined")
     book_tropes: Mapped[list["BookTrope"]] = relationship(
-        back_populates="book", cascade="all, delete-orphan"
+        back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
     character_dna: Mapped[list["CharacterDNA"]] = relationship(
-        back_populates="book", cascade="all, delete-orphan"
+        back_populates="book", cascade="all, delete-orphan", lazy="raise"
     )
     genres: Mapped[list["Genre"]] = relationship(
         secondary="book_genres", back_populates="books", lazy="raise"
@@ -74,4 +74,8 @@ class Book(Base):
         secondary="book_tones", back_populates="books", lazy="raise"
     )
 
-    __table_args__ = (Index("ix_books_title", "title"),)
+    __table_args__ = (
+        Index("ix_books_title", "title"),
+        Index("ix_books_author_id", "author_id"),
+        Index("ix_books_series_id", "series_id"),
+    )

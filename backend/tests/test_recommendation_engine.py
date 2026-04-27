@@ -151,8 +151,8 @@ class TestEmbedDescriptionOnly:
         mock_db.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_does_not_touch_genome_or_status(self):
-        """embed_description_only must not modify genome_embedding or embedding_status."""
+    async def test_does_not_touch_genome_but_sets_done_status(self):
+        """embed_description_only must not modify genome_embedding; sets embedding_status='done'."""
         from app.services.embedding import embed_description_only
         from app.models.book import Book
 
@@ -173,9 +173,9 @@ class TestEmbedDescriptionOnly:
         with patch("app.services.embedding._run", new=AsyncMock(return_value=fake_vec)):
             await embed_description_only(1, mock_db)
 
-        # genome and status must be untouched
+        # genome must be untouched; status advances to 'done' (description stream)
         assert mock_book.genome_embedding == [0.5] * 384
-        assert mock_book.embedding_status == "pending"
+        assert mock_book.embedding_status == "done"
 
 
 # ── embed_reviews_for_book ────────────────────────────────────────────────────

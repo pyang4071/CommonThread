@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
@@ -29,4 +29,5 @@ class BookRating(Base):
     __table_args__ = (
         CheckConstraint("rating >= 1 AND rating <= 5", name="ck_book_ratings_rating"),
         UniqueConstraint("user_id", "book_id", name="uq_book_ratings_user_book"),
+        Index("ix_book_ratings_book_id", "book_id"),
     )
