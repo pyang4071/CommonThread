@@ -11,10 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies via uv (uses uv.lock for reproducible installs)
-COPY pyproject.toml uv.lock .python-version ./
+COPY backend/pyproject.toml backend/uv.lock backend/.python-version ./
 RUN uv sync --frozen --no-dev
 
-COPY . .
+COPY backend/ .
 
 EXPOSE 8000
 
