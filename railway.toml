@@ -1,2 +1,4 @@
 [build]
 rootDirectory = "backend"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
