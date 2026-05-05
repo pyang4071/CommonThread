@@ -1,9 +1,13 @@
 """
-Embed or re-embed books.
+Embed books missing genome or description embeddings.
 
-Usage:
-    uv run python scripts/embed_all_books.py          # only books missing embeddings
-    uv run python scripts/embed_all_books.py --force  # re-embed all books
+Usage (against prod DB):
+    DATABASE_URL=<prod-url> uv run python scripts/embed_all_books.py
+
+Targets the same books as POST /admin/embed-all:
+  - embedding_status != 'done'
+  - has description but no description_embedding
+  - genome-eligible (>= 3 tropes) but no genome_embedding
 """
 
 import asyncio
@@ -12,33 +16,46 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 
 from app.database.engine import AsyncSessionLocal
 from app.models.book import Book
-from app.services.embedding import embed_book
+from app.models.book_trope import BookTrope
+from app.services.embedding import embed_books_batch
 
 
-async def main(force: bool = False) -> None:
+async def main() -> None:
     async with AsyncSessionLocal() as db:
-        stmt = select(Book.book_id) if force else select(Book.book_id).where(Book.embedding.is_(None))
-        result = await db.execute(stmt)
+        genome_eligible = (
+            select(BookTrope.book_id)
+            .group_by(BookTrope.book_id)
+            .having(func.count(BookTrope.trope_id) >= 3)
+        )
+        result = await db.execute(
+            select(Book.book_id)
+            .where(
+                or_(
+                    Book.embedding_status != "done",
+                    and_(Book.description.is_not(None), Book.description_embedding.is_(None)),
+                    and_(Book.book_id.in_(genome_eligible), Book.genome_embedding.is_(None)),
+                )
+            )
+            .where(Book.deleted_at.is_(None))
+        )
         ids = list(result.scalars().all())
 
     if not ids:
-        print("All books already have embeddings. Use --force to re-embed.")
+        print("Nothing to embed.")
         return
 
-    label = "Re-embedding" if force else "Embedding"
-    print(f"{label} {len(ids)} book(s)…")
-    for book_id in ids:
-        async with AsyncSessionLocal() as db:
-            book = await embed_book(book_id, db)
-            print(f"  [{book.book_id}] {book.title} — done")
+    print(f"Embedding {len(ids)} book(s) in batches of 4…")
+    async with AsyncSessionLocal() as db:
+        statuses = await embed_books_batch(ids, db)
 
-    print("Finished.")
+    done = sum(1 for s in statuses.values() if s == "done")
+    failed = sum(1 for s in statuses.values() if s == "failed")
+    print(f"Done: {done}  Failed: {failed}")
 
 
 if __name__ == "__main__":
-    force = "--force" in sys.argv
-    asyncio.run(main(force=force))
+    asyncio.run(main())
