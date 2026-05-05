@@ -84,19 +84,26 @@ async def search_users(db: AsyncSession, query: str, requesting_user_id: uuid.UU
 
 
 async def get_feed(
-    db: AsyncSession, user_id: uuid.UUID, limit: int = 30
+    db: AsyncSession,
+    user_id: uuid.UUID,
+    limit: int = 30,
+    before: datetime | None = None,
 ) -> list[FeedEntry]:
-    """Pull-model activity feed: recent shelf + rating events from followed users."""
-    # 1. Shelf events (reading_status changes)
+    """Pull-model activity feed: recent shelf + rating events from followed users.
+
+    Cursor-based pagination: pass `before` (the occurred_at of the last entry
+    from the previous page) to fetch the next page of older events.
+    """
+    shelf_filters = [UserFollow.follower_id == user_id, _is_public()]
+    if before is not None:
+        shelf_filters.append(ReadingStatus.updated_at < before)
+
     shelf_rows = await db.execute(
         select(ReadingStatus, AppUser, Book)
         .join(AppUser, AppUser.user_id == ReadingStatus.user_id)
         .join(Book, Book.book_id == ReadingStatus.book_id)
         .join(UserFollow, UserFollow.followee_id == ReadingStatus.user_id)
-        .where(
-            UserFollow.follower_id == user_id,
-            _is_public(),
-        )
+        .where(*shelf_filters)
         .order_by(desc(ReadingStatus.updated_at))
         .limit(limit)
     )
@@ -115,16 +122,16 @@ async def get_feed(
             )
         )
 
-    # 2. Rating events
+    rating_filters = [UserFollow.follower_id == user_id, _is_public()]
+    if before is not None:
+        rating_filters.append(BookRating.updated_at < before)
+
     rating_rows = await db.execute(
         select(BookRating, AppUser, Book)
         .join(AppUser, AppUser.user_id == BookRating.user_id)
         .join(Book, Book.book_id == BookRating.book_id)
         .join(UserFollow, UserFollow.followee_id == BookRating.user_id)
-        .where(
-            UserFollow.follower_id == user_id,
-            _is_public(),
-        )
+        .where(*rating_filters)
         .order_by(desc(BookRating.updated_at))
         .limit(limit)
     )
@@ -144,7 +151,6 @@ async def get_feed(
             )
         )
 
-    # Sort merged list by recency and cap
     entries.sort(key=lambda e: e.occurred_at, reverse=True)
     return entries[:limit]
 

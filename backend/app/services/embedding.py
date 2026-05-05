@@ -289,7 +289,7 @@ async def embed_book(book_id: int, db: AsyncSession, genome_threshold: int = 3) 
 async def embed_books_batch(
     book_ids: list[int],
     db: AsyncSession,
-    batch_size: int = 8,
+    batch_size: int = 4,
     genome_threshold: int = 3,
 ) -> dict[int, str]:
     """
@@ -363,5 +363,6 @@ async def embed_books_batch(
                 statuses[book.book_id] = "failed"
 
         await db.commit()
+        await asyncio.sleep(0.5)
 
     return statuses
