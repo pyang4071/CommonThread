@@ -146,12 +146,18 @@ async def embed_all(db: AsyncSession = Depends(get_db), _: AppUser = Depends(req
     with >= 3 tropes (checked per-book inside embed_books_batch).
     Returns the number of books queued.
     """
+    genome_eligible = (
+        select(BookTrope.book_id)
+        .group_by(BookTrope.book_id)
+        .having(func.count(BookTrope.trope_id) >= 3)
+    )
     result = await db.execute(
         select(Book.book_id)
         .where(
             or_(
                 Book.embedding_status != "done",
                 and_(Book.description.is_not(None), Book.description_embedding.is_(None)),
+                and_(Book.book_id.in_(genome_eligible), Book.genome_embedding.is_(None)),
             )
         )
         .where(Book.deleted_at.is_(None))
