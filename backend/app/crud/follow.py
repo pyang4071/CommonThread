@@ -96,7 +96,7 @@ async def get_feed(
     Cursor-based pagination: pass `before` (the occurred_at of the last entry
     from the previous page) to fetch the next page of older events.
     """
-    shelf_filters = [UserFollow.follower_id == user_id, _is_public()]
+    shelf_filters = [UserFollow.follower_id == user_id]
     if before is not None:
         shelf_filters.append(ReadingStatus.updated_at < before)
 
@@ -124,7 +124,7 @@ async def get_feed(
             )
         )
 
-    rating_filters = [UserFollow.follower_id == user_id, _is_public()]
+    rating_filters = [UserFollow.follower_id == user_id]
     if before is not None:
         rating_filters.append(BookRating.updated_at < before)
 
