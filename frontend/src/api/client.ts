@@ -36,7 +36,7 @@ async function del(path: string): Promise<void> {
 }
 
 async function authedFetch(method: string, path: string, token: string, body?: unknown) {
-  return fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -44,6 +44,8 @@ async function authedFetch(method: string, path: string, token: string, body?: u
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  return res
 }
 
 export type UserPreferences = {

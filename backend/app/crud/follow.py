@@ -3,8 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import cast, desc, func, select, true
-from sqlalchemy.dialects.postgresql import BOOLEAN
+from sqlalchemy import desc, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.book import Book
@@ -16,13 +15,16 @@ from app.schemas.user import FeedEntry, UserPublicProfile
 
 
 def _is_public(model: type[AppUser] = AppUser):
-    """SQLAlchemy clause: preferences->profile_public is true or absent (default public)."""
-    # COALESCE(cast(preferences->>'profile_public' as boolean), true)
-    raw = func.coalesce(
-        cast(model.preferences["profile_public"].as_string(), BOOLEAN),
+    """SQLAlchemy clause: preferences->profile_public is true or absent (default public).
+
+    Uses string comparison instead of CAST to avoid a PostgreSQL error when the
+    stored value is JSON null (which ->> serialises as the literal string 'null',
+    not a SQL NULL, and cannot be cast to boolean).
+    """
+    return func.coalesce(
+        model.preferences["profile_public"].as_string() != "false",
         true(),
     )
-    return raw == true()
 
 
 async def follow(db: AsyncSession, follower_id: uuid.UUID, followee_id: uuid.UUID) -> None:
