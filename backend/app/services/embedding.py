@@ -50,14 +50,17 @@ DESCRIPTION_DIM = 768
 BGE_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 
+_FASTEMBED_CACHE = "/app/model_cache"
+
+
 @lru_cache(maxsize=1)
 def _get_genome_model() -> TextEmbedding:
-    return TextEmbedding(GENOME_MODEL)
+    return TextEmbedding(GENOME_MODEL, cache_dir=_FASTEMBED_CACHE)
 
 
 @lru_cache(maxsize=1)
 def _get_description_model() -> TextEmbedding:
-    return TextEmbedding(DESCRIPTION_MODEL)
+    return TextEmbedding(DESCRIPTION_MODEL, cache_dir=_FASTEMBED_CACHE)
 
 
 def build_genome(book: Book) -> str:
