@@ -289,7 +289,7 @@ async def embed_book(book_id: int, db: AsyncSession, genome_threshold: int = 3) 
 async def embed_books_batch(
     book_ids: list[int],
     db: AsyncSession,
-    batch_size: int = 32,
+    batch_size: int = 8,
     genome_threshold: int = 3,
 ) -> dict[int, str]:
     """
@@ -300,24 +300,24 @@ async def embed_books_batch(
     embedding_status is set to 'done' for all successfully processed books so
     they appear in hybrid/lexical search even if genome is skipped.
 
-    Each chunk is committed as it completes so progress is not lost on partial failure.
+    Each chunk is fetched and committed independently to bound memory usage.
     Returns a dict mapping book_id → final status ('done' | 'failed').
     """
-    result = await db.execute(
-        select(Book)
-        .where(Book.book_id.in_(book_ids))
-        .options(
-            selectinload(Book.book_tropes).selectinload(BookTrope.trope),
-            selectinload(Book.character_dna).selectinload(CharacterDNA.archetype),
-            selectinload(Book.genres),
-            selectinload(Book.tones),
-        )
-    )
-    books = list(result.scalars().all())
     statuses: dict[int, str] = {}
 
-    for i in range(0, len(books), batch_size):
-        chunk = books[i : i + batch_size]
+    for i in range(0, len(book_ids), batch_size):
+        chunk_ids = book_ids[i : i + batch_size]
+        result = await db.execute(
+            select(Book)
+            .where(Book.book_id.in_(chunk_ids))
+            .options(
+                selectinload(Book.book_tropes).selectinload(BookTrope.trope),
+                selectinload(Book.character_dna).selectinload(CharacterDNA.archetype),
+                selectinload(Book.genres),
+                selectinload(Book.tones),
+            )
+        )
+        chunk = list(result.scalars().all())
 
         # Separate books by what they need embedded
         genome_indices: list[int] = []
@@ -337,10 +337,8 @@ async def embed_books_batch(
             genome_vec_map: dict[int, list[float]] = {}
 
             if desc_texts and genome_texts:
-                desc_vecs, genome_vecs = await asyncio.gather(
-                    _run_batch(desc_texts, _get_description_model),
-                    _run_batch(genome_texts, _get_genome_model),
-                )
+                desc_vecs = await _run_batch(desc_texts, _get_description_model)
+                genome_vecs = await _run_batch(genome_texts, _get_genome_model)
                 desc_vec_map = dict(zip(desc_indices, desc_vecs))
                 genome_vec_map = dict(zip(genome_indices, genome_vecs))
             elif desc_texts:
