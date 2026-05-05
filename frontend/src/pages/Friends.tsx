@@ -238,12 +238,16 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
+const FEED_LIMIT = 30
+
 export function Friends() {
   const { session } = useAuth()
   const toast = useToast()
   const [following, setFollowing] = useState<UserPublicProfile[]>([])
   const [feed, setFeed] = useState<FeedEntry[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   useEffect(() => { document.title = 'Friends — CommonThread' }, [])
 
   const followingIds = new Set(following.map(u => u.user_id))
@@ -257,11 +261,29 @@ export function Friends() {
       .catch(() => toast.error('Failed to load following list.'))
 
     setFeedLoading(true)
-    api.users.feed(token)
-      .then(setFeed)
+    api.users.feed(token, FEED_LIMIT)
+      .then(entries => {
+        setFeed(entries)
+        setHasMore(entries.length === FEED_LIMIT)
+      })
       .catch(() => toast.error('Failed to load activity feed.'))
       .finally(() => setFeedLoading(false))
   }, [session])
+
+  const loadMore = async () => {
+    if (!session || feed.length === 0) return
+    setLoadingMore(true)
+    try {
+      const cursor = feed[feed.length - 1].occurred_at
+      const entries = await api.users.feed(session.access_token, FEED_LIMIT, cursor)
+      setFeed(prev => [...prev, ...entries])
+      setHasMore(entries.length === FEED_LIMIT)
+    } catch {
+      toast.error('Failed to load more activity.')
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   if (!session) return null
 
@@ -327,6 +349,16 @@ export function Friends() {
             <div className="divide-y divide-gray-100">
               {feed.map((entry, i) => <FeedItem key={i} entry={entry} />)}
             </div>
+          )}
+
+          {!feedLoading && hasMore && (
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="mt-4 w-full text-sm text-indigo-600 hover:text-indigo-800 disabled:text-gray-400 transition-colors"
+            >
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </button>
           )}
         </div>
       </div>

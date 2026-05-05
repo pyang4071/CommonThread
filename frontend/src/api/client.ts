@@ -440,8 +440,11 @@ export const api = {
     followStatus: (token: string, userId: string) =>
       authedFetch('GET', `/users/me/following/${userId}/status`, token)
         .then(r => r.json() as Promise<FollowStatus>),
-    feed: (token: string, limit = 30) =>
-      authedFetch('GET', `/users/me/feed?limit=${limit}`, token).then(r => r.json() as Promise<FeedEntry[]>),
+    feed: (token: string, limit = 30, before?: string) => {
+      const params = new URLSearchParams({ limit: String(limit) })
+      if (before) params.set('before', before)
+      return authedFetch('GET', `/users/me/feed?${params}`, token).then(r => r.json() as Promise<FeedEntry[]>)
+    },
     profile: (token: string, userId: string) =>
       authedFetch('GET', `/users/${userId}/profile`, token).then(async r => {
         if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)

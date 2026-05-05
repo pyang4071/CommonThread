@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -121,11 +122,15 @@ async def follow_status(
 @router.get("/me/feed", response_model=list[FeedEntry])
 async def get_feed(
     limit: int = Query(default=30, le=100),
+    before: datetime | None = Query(default=None),
     current_user: AppUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Activity feed of books recently read/rated by followed users."""
-    return await crud.follow.get_feed(db, current_user.user_id, limit)
+    """Activity feed of books recently read/rated by followed users.
+
+    Pass `before` (ISO datetime of the last entry) to load the next page.
+    """
+    return await crud.follow.get_feed(db, current_user.user_id, limit, before)
 
 
 @router.get("/{user_id}/profile", response_model=UserPublicProfile)
