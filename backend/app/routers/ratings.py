@@ -1,12 +1,17 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func as sa_func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user
+from app.config import settings
 from app.crud import rating as crud_rating
 from app.database import get_db
 from app.database.engine import AsyncSessionLocal
+from app.models.book import Book
+from app.models.book_rating import BookRating
 from app.models.user import AppUser
 from app.schemas.rating import RatingRead, RatingUpsert, ReviewRead
 from app.services.embedding import embed_reviews_for_book
@@ -27,11 +32,6 @@ async def get_my_rating(
 async def _embed_reviews_in_background(book_id: int) -> None:
     async with AsyncSessionLocal() as db:
         try:
-            from sqlalchemy import func as sa_func
-            from app.config import settings
-            from app.models.book import Book
-            from app.models.book_rating import BookRating
-
             count_q = await db.execute(
                 select(sa_func.count()).select_from(BookRating).where(
                     BookRating.book_id == book_id,
@@ -44,7 +44,8 @@ async def _embed_reviews_in_background(book_id: int) -> None:
             book = await db.get(Book, book_id)
             if book is None:
                 return
-            if current_count - book.review_embed_count < settings.REVIEW_EMBED_BATCH_SIZE:
+            since_last = current_count - (book.review_embed_count or 0)
+            if since_last == 0 or (book.review_embed_count and since_last < settings.REVIEW_EMBED_BATCH_SIZE):
                 return
 
             await embed_reviews_for_book(book_id, db)
