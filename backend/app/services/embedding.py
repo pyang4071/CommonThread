@@ -50,7 +50,13 @@ DESCRIPTION_DIM = 768
 BGE_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 
-_FASTEMBED_CACHE = "/app/model_cache"
+import os
+from pathlib import Path as _Path
+
+_FASTEMBED_CACHE = os.environ.get(
+    "FASTEMBED_CACHE",
+    str(_Path(__file__).parent.parent.parent / "model_cache"),
+)
 
 
 @lru_cache(maxsize=1)
