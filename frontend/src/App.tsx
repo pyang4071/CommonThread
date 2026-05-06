@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider, ScrollRestoration } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -155,6 +155,7 @@ function RootLayout() {
   return (
     <ToastProvider>
       <AuthProvider>
+        <ScrollRestoration />
         <Outlet />
       </AuthProvider>
     </ToastProvider>

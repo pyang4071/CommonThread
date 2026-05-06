@@ -1,6 +1,6 @@
 # CommonThread — Feature Reference
 
-Complete inventory of all functionality in the frontend and backend as of 2026-04-20.
+Complete inventory of all functionality in the frontend and backend as of 2026-05-05.
 
 ---
 
@@ -149,6 +149,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Follow / Unfollow from search results
 - Following list with Unfollow buttons
 - Activity feed: read, currently reading, wants to read, rated, reviewed — with relative timestamps (Today / Yesterday / N days ago)
+- Activity feed auto-refreshes immediately after follow or unfollow
 - Empty state messaging
 
 #### UserProfile (`/users/:userId`)

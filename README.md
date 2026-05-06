@@ -26,9 +26,9 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Vibe/semantic search | Working — alpha-blended genome + description (`GET /search`) |
 | Hybrid search | Working — RRF combining PostgreSQL full-text + BGE description cosine (`POST /search/hybrid`) |
 | Personalized recommendations | Working — user taste vector from history |
-| Friends / social | Working — follow system, activity feed, public profiles |
+| Friends / social | Working — follow system, activity feed (auto-refreshes on follow/unfollow), public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Feature-complete — data router, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language/page-range filters, crowd-tagged badges |
+| Frontend | Feature-complete — data router, scroll restoration on navigation, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language/page-range filters, crowd-tagged badges |
 | Admin dashboard | Working — embed-all (incl. description backfill), stall detection + crash recovery, fetch-covers, vector coverage panel with genome-eligible stat, embedding model health status panel |
 | Crowd promotion | Working — user trope/archetype tags promoted to canonical at N≥3 users; median weight; dominant-anchor rule; ratchet (no auto-demotion); archetypes supported |
 | Auth | Working via Supabase JWT; AuthContext race condition fixed |
