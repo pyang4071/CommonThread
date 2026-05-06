@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Archetype, Book } from '../api/client'
 
@@ -15,6 +15,7 @@ function ImportanceDots({ value }: { value: number }) {
 
 export function ArchetypeDetail() {
   const { id } = useParams<{ id: string }>()
+  const { pathname } = useLocation()
   const [archetype, setArchetype] = useState<Archetype | null>(null)
   const [books, setBooks] = useState<(Book & { importance: number })[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,6 +84,7 @@ export function ArchetypeDetail() {
             <Link
               key={book.book_id}
               to={`/books/${book.book_id}`}
+              state={{ from: pathname, fromLabel: archetype.name }}
               className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex gap-3"
             >
               {book.cover_url ? (

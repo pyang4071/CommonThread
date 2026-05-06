@@ -50,6 +50,7 @@ export function BookDetail() {
   const navigate = useNavigate()
   const { state } = useLocation()
   const backTo: string = state?.from ?? '/books'
+  const backLabel: string = state?.fromLabel ?? (backTo === '/shelf' ? 'My Shelf' : 'Books')
   const { session, isAdmin } = useAuth()
   const toast = useToast()
   const [book, setBook] = useState<BookDetailType | null>(null)
@@ -320,7 +321,7 @@ export function BookDetail() {
       <div className="flex items-center justify-between gap-4">
         <nav className="flex items-center gap-1.5 text-sm text-gray-400 min-w-0">
           <Link to={backTo} className="text-indigo-600 hover:underline shrink-0">
-            {backTo === '/shelf' ? 'My Shelf' : 'Books'}
+            {backLabel}
           </Link>
           <span className="shrink-0">›</span>
           <span className="text-gray-600 truncate">{book.title}</span>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import type { Book, Trope } from '../api/client'
 
@@ -26,6 +26,7 @@ function WeightBar({ value }: { value: number }) {
 
 export function TropeDetail() {
   const { id } = useParams<{ id: string }>()
+  const { pathname } = useLocation()
   const [trope, setTrope] = useState<Trope | null>(null)
   const [books, setBooks] = useState<(Book & { weight: number })[]>([])
   const [loading, setLoading] = useState(true)
@@ -102,6 +103,7 @@ export function TropeDetail() {
             <Link
               key={book.book_id}
               to={`/books/${book.book_id}`}
+              state={{ from: pathname, fromLabel: trope.name }}
               className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex gap-3"
             >
               {book.cover_url ? (
