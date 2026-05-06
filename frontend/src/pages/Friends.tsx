@@ -248,18 +248,21 @@ export function Friends() {
   const [feedLoading, setFeedLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
+  const [feedVersion, setFeedVersion] = useState(0)
   useEffect(() => { document.title = 'Friends — CommonThread' }, [])
 
   const followingIds = new Set(following.map(u => u.user_id))
 
   useEffect(() => {
     if (!session) return
-    const token = session.access_token
-
-    api.users.following(token)
+    api.users.following(session.access_token)
       .then(setFollowing)
       .catch(() => toast.error('Failed to load following list.'))
+  }, [session])
 
+  useEffect(() => {
+    if (!session) return
+    const token = session.access_token
     setFeedLoading(true)
     api.users.feed(token, FEED_LIMIT)
       .then(entries => {
@@ -268,7 +271,7 @@ export function Friends() {
       })
       .catch(() => toast.error('Failed to load activity feed.'))
       .finally(() => setFeedLoading(false))
-  }, [session])
+  }, [session, feedVersion])
 
   const loadMore = async () => {
     if (!session || feed.length === 0) return
@@ -287,11 +290,15 @@ export function Friends() {
 
   if (!session) return null
 
-  const handleFollow = (u: UserPublicProfile) =>
+  const handleFollow = (u: UserPublicProfile) => {
     setFollowing(prev => prev.some(f => f.user_id === u.user_id) ? prev : [...prev, u])
+    setFeedVersion(v => v + 1)
+  }
 
-  const handleUnfollow = (userId: string) =>
+  const handleUnfollow = (userId: string) => {
     setFollowing(prev => prev.filter(u => u.user_id !== userId))
+    setFeedVersion(v => v + 1)
+  }
 
   return (
     <div className="max-w-2xl space-y-6">
