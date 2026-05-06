@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider, ScrollRestoration } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider, useLocation, useNavigationType } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -150,12 +150,21 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  const navType = useNavigationType()
+  useEffect(() => {
+    if (navType !== 'POP') window.scrollTo(0, 0)
+  }, [pathname, navType])
+  return null
+}
+
 /** Root layout: provides context to all routes via Outlet. */
 function RootLayout() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <ScrollRestoration />
+        <ScrollToTop />
         <Outlet />
       </AuthProvider>
     </ToastProvider>
