@@ -120,7 +120,7 @@ async def get_feed(
                 book_cover_url=book.cover_url,
                 event_type=rs.status,
                 rating=None,
-                occurred_at=rs.updated_at,
+                occurred_at=rs.updated_at.replace(tzinfo=None),
             )
         )
 
@@ -149,7 +149,7 @@ async def get_feed(
                 event_type="review" if has_review else "rating",
                 rating=rating.rating,
                 review_text=rating.review_text if has_review else None,
-                occurred_at=rating.updated_at,
+                occurred_at=rating.updated_at.replace(tzinfo=None),
             )
         )
 
