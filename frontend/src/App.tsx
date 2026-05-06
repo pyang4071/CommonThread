@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { createBrowserRouter, Link, NavLink, Outlet, RouterProvider, useLocation, useNavigationType } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ToastProvider } from './contexts/ToastContext'
@@ -153,7 +153,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 function ScrollToTop() {
   const { pathname } = useLocation()
   const navType = useNavigationType()
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (navType !== 'POP') window.scrollTo(0, 0)
   }, [pathname, navType])
   return null
@@ -170,6 +170,9 @@ function RootLayout() {
     </ToastProvider>
   )
 }
+
+// Disable browser scroll restoration so ScrollToTop has full control.
+window.history.scrollRestoration = 'manual'
 
 const router = createBrowserRouter([
   {
