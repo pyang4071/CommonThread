@@ -150,11 +150,20 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   )
 }
 
+function scrollToTop() {
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  document.documentElement.scrollTop = 0
+  document.body.scrollTop = 0
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation()
   const navType = useNavigationType()
   useLayoutEffect(() => {
-    if (navType !== 'POP') window.scrollTo(0, 0)
+    if (navType !== 'POP') scrollToTop()
+  }, [pathname, navType])
+  useEffect(() => {
+    if (navType !== 'POP') scrollToTop()
   }, [pathname, navType])
   return null
 }
@@ -171,8 +180,16 @@ function RootLayout() {
   )
 }
 
-// Disable browser scroll restoration so ScrollToTop has full control.
 window.history.scrollRestoration = 'manual'
+
+// Intercept pushState to scroll to top at the earliest possible moment —
+// before React starts rendering the new route, covering any timing gaps
+// that useLayoutEffect alone cannot close.
+const _origPushState = window.history.pushState.bind(window.history)
+window.history.pushState = function (...args) {
+  _origPushState(...args)
+  scrollToTop()
+}
 
 const router = createBrowserRouter([
   {
