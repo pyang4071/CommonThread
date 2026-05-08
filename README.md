@@ -200,4 +200,4 @@ npx playwright test --project=public  # 14 public tests — no credentials neede
 npx playwright test --ui              # interactive UI mode
 ```
 
-See [FEATURES.md — End-to-End Testing](FEATURES.md#end-to-end-testing) for full test coverage details.
+See [FEATURES.md — End-to-End Testing](docs/FEATURES.md#end-to-end-testing) for full test coverage details.
