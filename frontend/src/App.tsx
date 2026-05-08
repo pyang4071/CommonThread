@@ -34,7 +34,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 function Header() {
-  const { user, isAdmin, signOut } = useAuth()
+  const { user, profile, isAdmin, signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const close = () => setMenuOpen(false)
 
@@ -68,7 +68,7 @@ function Header() {
           {user ? (
             <>
               <Link to="/profile" className="text-sm text-gray-500 hover:text-indigo-600 transition-colors" onClick={close}>
-                {user.user_metadata?.name ?? user.email}
+                {profile?.name ?? user.email}
               </Link>
               <button
                 onClick={() => { signOut(); close() }}
@@ -115,7 +115,7 @@ function Header() {
               <>
                 <Link to="/profile" onClick={close}
                   className="px-4 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100">
-                  {user.user_metadata?.name ?? user.email}
+                  {profile?.name ?? user.email}
                 </Link>
                 <button onClick={() => { signOut(); close() }}
                   className="text-left px-4 py-2 rounded-md text-sm text-gray-600 hover:bg-gray-100">
