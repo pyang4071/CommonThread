@@ -36,7 +36,6 @@ class BookBase(BaseModel):
     pacing: int | None = None
     series_position: int | None = None
     page_count: int | None = None
-    language: str | None = None
 
 
 class BookCreate(BookBase):

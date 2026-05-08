@@ -80,7 +80,6 @@ async def list_books(
     user_id: uuid.UUID | None = None,
     page_count_min: int | None = None,
     page_count_max: int | None = None,
-    language: str | None = None,
 ) -> list[Book]:
     stmt = select(Book).where(Book.deleted_at.is_(None))
     if search:
@@ -171,12 +170,6 @@ async def list_books(
         stmt = stmt.where(Book.page_count >= page_count_min)
     if page_count_max is not None:
         stmt = stmt.where(Book.page_count <= page_count_max)
-    if language is not None:
-        if language == 'eng':
-            # Untagged books are assumed English
-            stmt = stmt.where((Book.language == 'eng') | Book.language.is_(None))
-        else:
-            stmt = stmt.where(Book.language == language)
 
     stmt = stmt.offset(skip).limit(limit)
     result = await db.execute(stmt)

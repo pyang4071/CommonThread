@@ -35,7 +35,6 @@ class Book(Base):
     pacing: Mapped[int | None] = mapped_column(nullable=True)
     cover_url: Mapped[str | None] = mapped_column(nullable=True)
     page_count: Mapped[int | None] = mapped_column(nullable=True)
-    language: Mapped[str | None] = mapped_column(nullable=True)
     search_vector: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(

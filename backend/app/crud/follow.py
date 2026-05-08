@@ -157,11 +157,3 @@ async def get_feed(
     return entries[:limit]
 
 
-async def get_user_shelf(db: AsyncSession, target_user_id: uuid.UUID) -> list[ReadingStatus]:
-    """Return another user's shelf (caller must already have checked visibility)."""
-    result = await db.execute(
-        select(ReadingStatus)
-        .where(ReadingStatus.user_id == target_user_id)
-        .order_by(desc(ReadingStatus.updated_at))
-    )
-    return list(result.scalars().all())

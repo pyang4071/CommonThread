@@ -28,7 +28,7 @@ CommonThread is being built for ECE 464. The core thesis: traditional book recom
 | Personalized recommendations | Working — user taste vector from history |
 | Friends / social | Working — follow system, activity feed (auto-refreshes on follow/unfollow), public profiles |
 | User preferences | Working — content blacklist (genres/types/tones), privacy toggle |
-| Frontend | Feature-complete — data router, scroll restoration on navigation, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/language/page-range filters, crowd-tagged badges |
+| Frontend | Feature-complete — data router, scroll restoration on navigation, navigation guard on AddBook, 403 Unauthorized page, threshold badge, optional tropes, page_count/page-range filters, crowd-tagged badges |
 | Admin dashboard | Working — embed-all (incl. description backfill), stall detection + crash recovery, fetch-covers, vector coverage panel with genome-eligible stat, embedding model health status panel |
 | Crowd promotion | Working — user trope/archetype tags promoted to canonical at N≥3 users; median weight; dominant-anchor rule; ratchet (no auto-demotion); archetypes supported |
 | Auth | Working via Supabase JWT; AuthContext race condition fixed |
@@ -233,7 +233,6 @@ books
   description (text, nullable)
   pacing (int 1-5, nullable)
   page_count (int, nullable)
-  language (varchar, nullable)
   cover_url (nullable)
   search_vector (tsvector GENERATED) ← full-text index for hybrid search
   genome_embedding (vector 384)      ← structural/trope embedding (≥3 tropes required)
@@ -475,7 +474,7 @@ For each subject, the scraper calls:
 1. `GET /search.json?subject={subject}&limit=100&page=N` — paginated work list
 2. `GET /works/{id}.json` — full description per work (concurrent, up to 5 in parallel)
 
-Fields saved per book: `ol_work_key`, `title`, `authors`, `isbn`, `isbn13`, `publication_year`, `publisher`, `page_count`, `language`, `subjects`, `cover_url`, `description`, `edition_count`.
+Fields saved per book: `ol_work_key`, `title`, `authors`, `isbn`, `isbn13`, `publication_year`, `publisher`, `page_count`, `subjects`, `cover_url`, `description`, `edition_count`.
 
 ### Built-in subjects (20)
 
@@ -811,5 +810,6 @@ Embedding and cover-fetching run as FastAPI `BackgroundTask` objects — they ex
 | l6m7n8o9p0q1 | **Add user_follows table** (follower_id, followee_id, created_at; composite PK + indexes) |
 | n8o9p0q1r2s3 | **Add search_vector tsvector GENERATED column** to books (lexical full-text for hybrid search) |
 | o9p0q1r2s3t4 | **Add page_count, language columns** to books; add review_embedding vector(768) |
+| s3t4u5v6w7x8 | **Drop language column** from books (Open Library data unreliable; field unused in embeddings/search/recs) |
 | p0q1r2s3t4u5 | **Phase 3 — crowd promotion**: add `character_dna.is_crowd_promoted`, `books.review_embed_count` |
 | q1r2s3t4u5v6 | **Drop `app_users.onboarding_completed`** (unused column) |
