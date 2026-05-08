@@ -316,7 +316,7 @@ export function Books() {
     setSelectedGenres([]); setSelectedBookTypes([]); setSelectedTones([])
     setSelectedCategories([]); setPacing(undefined)
     setExcludedTropes([]); setExcludedArchetypes([])
-    setShelfFilter(undefined); setLanguageFilter(undefined)
+    setShelfFilter(undefined)
     setPageCountMin(undefined); setPageCountMax(undefined)
     setHybridResults(null); setHybridError(null)
   }
