@@ -687,7 +687,7 @@ uv run python -m webscraper.run --resume
 
 ### What it does
 
-1. Reads `tagged_books.json` (produced by the AI tagging workflow in `create_books.md`)
+1. Reads `tagged_books.json` (produced by the AI tagging workflow in `backend/parse_books.md`)
 2. Matches each entry to an existing book by ISBN → title+author fallback (case-insensitive)
 3. Creates the book if not found
 4. Applies all taxonomy associations idempotently: genres, book types, tones, tropes (with weight), archetypes (with importance)
@@ -716,7 +716,7 @@ The script is **idempotent** — re-running it on already-imported books is safe
 | Tagged with tropes/archetypes | 648 |
 | Scraped JSONL files (not yet tagged) | 9,220 remaining |
 
-Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.json`. See `create_books.md` for the full tagging workflow and resumption instructions.
+Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.json`. See `backend/parse_books.md` for the full tagging workflow and resumption instructions.
 
 ---
 
@@ -738,3 +738,72 @@ Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.
 | Content blocklist (genres/types/tones) | Applied server-side in `/books` list query when user is authenticated |
 | Soft delete on books | `deleted_at` timestamp; all queries filter `deleted_at IS NULL` |
 | Cascade deletes | All user interaction rows (ratings, status, dislikes, tags, follows) cascade on user or book delete |
+
+---
+
+## Key Implementation Notes
+
+### SQLAlchemy Async — Eager Loading Required
+
+All relationships accessed in async route handlers must use explicit `selectinload()` or `joinedload()`. SQLAlchemy async does not support implicit lazy loading — accessing a relationship outside an `await`-able context raises `MissingGreenlet`. See `error_log.md` for details.
+
+### React Router — Data Router Required
+
+`App.tsx` uses `createBrowserRouter` + `RouterProvider` (React Router v7 data router), not the legacy `<BrowserRouter>`. This is required for `useBlocker` (navigation guard in AddBook). Do not revert to `<BrowserRouter>` — it breaks the dirty-form guard.
+
+### AuthContext — Loading Flag
+
+`AuthContext` keeps `loading = true` until both the Supabase session and the `AppUser` profile have been fetched. This prevents `ProtectedRoute` from seeing a transient `isAdmin = false` during the async profile fetch. The `onAuthStateChange` listener skips its first event via `initializedRef` to avoid double-fetching.
+
+### Admin CRUD — Auth Token Required
+
+`api.genres.create/delete`, `api.tones.create/delete`, `api.bookTypes.create/delete`, and `api.archetypes.create/delete` all require an explicit `token` parameter (pass `session!.access_token` from `useAuth()`). They call `authedFetch()` internally. Do not use the generic unauthenticated `post()` / `del()` helpers for any admin write operation.
+
+### Embedding Race Condition Guard
+
+`_embed_in_background` (in `books.py`) checks the trope count both before and after calling `embed_book()`. The post-embed check ensures that if a `detach_trope` races with the background task and drops count below threshold during embedding, the `done` status is immediately reverted to `pending`. Similarly, `detach_trope` resets status whenever `embedding_status != 'pending'` (not just on `done`).
+
+### Authentication Flow
+
+1. User signs in via Supabase Auth (frontend uses Supabase JS SDK)
+2. Supabase issues a JWT
+3. Frontend sends JWT as `Authorization: Bearer <token>` on every API request
+4. FastAPI validates the JWT signature against the Supabase secret
+5. `get_current_user()` upserts the corresponding `app_users` row on every request — new Supabase users get their DB profile auto-created on first call
+
+### Background Tasks
+
+Embedding and cover-fetching run as FastAPI `BackgroundTask` objects — they execute after the response is sent, in the same process event loop. For production load, replace with a proper task queue (Celery + Redis, or RQ).
+
+---
+
+## Migration History
+
+| Revision | Description |
+|---|---|
+| (initial) | Books, Authors, Tropes, Archetypes, associations |
+| +genres | Added Genre model and book_genres junction |
+| +book_types | Added BookType model |
+| +tones | Added Tone model |
+| +reading_status | ReadingStatus model |
+| +ratings | BookRating model |
+| +dislikes | BookDislike model |
+| +embeddings | pgvector columns on books (genome 384d, description 768d) |
+| +covers | cover_url column |
+| +pacing | pacing column (1–5) |
+| +description | description column |
+| +supabase_auth | Migrated user_id to UUID for Supabase Auth |
+| +series | Series model, series_id/series_position on books |
+| +user_tags | UserBookTrope, UserBookArchetype models |
+| +indexes | Performance indexes |
+| +constraints | Check constraints on weights/importance |
+| +cascades | ON DELETE CASCADE |
+| +embed_status | Renamed/consolidated embedding status field |
+| j4k5l6m7n8o9 | Drop `embedding_jobs` and `recommendation_events` (replaced by inline `embedding_status` on books) |
+| k5l6m7n8o9p0 | Add `preferences` JSONB to `app_users` (blocked content lists, profile_public) |
+| l6m7n8o9p0q1 | Add `user_follows` table (follower_id, followee_id, created_at; composite PK + indexes) |
+| n8o9p0q1r2s3 | Add `search_vector` tsvector GENERATED column to books (full-text for hybrid search) |
+| o9p0q1r2s3t4 | Add `page_count`, `review_embedding` vector(768) to books |
+| s3t4u5v6w7x8 | Drop `language` column from books (Open Library data unreliable; unused in embeddings/search) |
+| p0q1r2s3t4u5 | Phase 3 crowd promotion: add `character_dna.is_crowd_promoted`, `books.review_embed_count` |
+| q1r2s3t4u5v6 | Drop `app_users.onboarding_completed` (unused column) |
