@@ -1,4 +1,4 @@
-# Book Tagging Prompt
+# Parse Books
 
 ## Current Status — 2026-04-18
 
@@ -24,7 +24,6 @@ Once you have appended a batch to `tagged_books.json`, run the import script to 
 the new entries into the database:
 
 ```bash
-cd backend
 uv run python scripts/import_tagged_books.py --no-embed
 ```
 
@@ -58,8 +57,8 @@ The import script is idempotent — re-running it on already-imported books is s
 
 ## Goal
 
-Read the scraped book data from `backend/webscraper/output/` and produce a single
-`backend/webscraper/output/tagged_books.json` file where every book is annotated
+Read the scraped book data from `webscraper/output/` and produce a single
+`webscraper/output/tagged_books.json` file where every book is annotated
 using the CommonThread taxonomy (tropes, archetypes, genres, book types, tones, pacing).
 
 Use your training knowledge of each book. Do not make external tool calls or web
@@ -70,7 +69,7 @@ already present in the scraped data.
 
 ## Input
 
-Read all JSONL files matching `backend/webscraper/output/books_*.jsonl`.
+Read all JSONL files matching `webscraper/output/books_*.jsonl`.
 Each line is a JSON object with these fields (all optional except `title`):
 
 ```
@@ -90,7 +89,7 @@ discovered_via_subject string  Which subject query found this book
 
 ## Taxonomy
 
-The full taxonomy is in `backend/reference_data.md`. Use **only** names from that
+The full taxonomy is in `reference_data.md`. Use **only** names from that
 file. Do not invent new tropes, archetypes, genres, book types, or tones.
 
 ### Trope weights
@@ -131,7 +130,7 @@ Assign **0 to 8 archetypes** per book.
 
 ## Output format
 
-Write the result to `backend/webscraper/output/tagged_books.json` as a JSON array.
+Write the result to `webscraper/output/tagged_books.json` as a JSON array.
 Each element must follow this exact structure:
 
 ```json
@@ -174,7 +173,7 @@ If you have no meaningful knowledge of a book (e.g. the title is unrecognisable,
 description is absent, and your training data has nothing on it), **skip it** — do not
 guess. Write the skipped book to a separate file:
 
-`backend/webscraper/output/skipped_books.json`
+`webscraper/output/skipped_books.json`
 
 ```json
 [
@@ -188,11 +187,11 @@ guess. Write the skipped book to a separate file:
 
 Process books in batches of 50. After each batch of 50:
 
-1. **Append** completed entries to `backend/webscraper/output/tagged_books.json`
+1. **Append** completed entries to `webscraper/output/tagged_books.json`
    (never overwrite — always append to preserve previously tagged books).
 2. **Update** the checkpoint file:
 
-`backend/webscraper/output/tagging_progress.json`
+`webscraper/output/tagging_progress.json`
 
 ```json
 {

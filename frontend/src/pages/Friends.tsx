@@ -21,6 +21,7 @@ function UserSearchPanel({
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<UserPublicProfile[]>([])
   const [loading, setLoading] = useState(false)
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const toast = useToast()
   const navigate = useNavigate()
   const ref = useRef<HTMLDivElement>(null)
@@ -49,6 +50,8 @@ function UserSearchPanel({
   }, [])
 
   const handleFollow = async (u: UserPublicProfile) => {
+    if (pendingIds.has(u.user_id)) return
+    setPendingIds(prev => new Set(prev).add(u.user_id))
     try {
       await api.users.follow(token, u.user_id)
       onFollow(u)
@@ -57,16 +60,22 @@ function UserSearchPanel({
       toast.success(`Following ${u.name ?? u.email}`)
     } catch {
       toast.error('Could not follow user.')
+    } finally {
+      setPendingIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s })
     }
   }
 
   const handleUnfollow = async (u: UserPublicProfile) => {
+    if (pendingIds.has(u.user_id)) return
+    setPendingIds(prev => new Set(prev).add(u.user_id))
     try {
       await api.users.unfollow(token, u.user_id)
       onUnfollow(u.user_id)
       toast.success(`Unfollowed ${u.name ?? u.email}`)
     } catch {
       toast.error('Could not unfollow user.')
+    } finally {
+      setPendingIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s })
     }
   }
 
@@ -98,16 +107,18 @@ function UserSearchPanel({
                 {followingIds.has(u.user_id) ? (
                   <button
                     onClick={() => handleUnfollow(u)}
-                    className="ml-3 shrink-0 px-3 py-1 text-xs border border-gray-300 text-gray-600 rounded-full hover:bg-gray-100"
+                    disabled={pendingIds.has(u.user_id)}
+                    className="ml-3 shrink-0 px-3 py-1 text-xs border border-gray-300 text-gray-600 rounded-full hover:bg-gray-100 disabled:opacity-50"
                   >
-                    Following
+                    {pendingIds.has(u.user_id) ? '…' : 'Following'}
                   </button>
                 ) : (
                   <button
                     onClick={() => handleFollow(u)}
-                    className="ml-3 shrink-0 px-3 py-1 text-xs bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                    disabled={pendingIds.has(u.user_id)}
+                    className="ml-3 shrink-0 px-3 py-1 text-xs bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    Follow
+                    {pendingIds.has(u.user_id) ? '…' : 'Follow'}
                   </button>
                 )}
               </li>
@@ -134,14 +145,19 @@ function FollowingList({
   onUnfollow: (userId: string) => void
 }) {
   const toast = useToast()
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
 
   const handleUnfollow = async (u: UserPublicProfile) => {
+    if (pendingIds.has(u.user_id)) return
+    setPendingIds(prev => new Set(prev).add(u.user_id))
     try {
       await api.users.unfollow(token, u.user_id)
       onUnfollow(u.user_id)
       toast.success(`Unfollowed ${u.name ?? u.email}`)
     } catch {
       toast.error('Could not unfollow.')
+    } finally {
+      setPendingIds(prev => { const s = new Set(prev); s.delete(u.user_id); return s })
     }
   }
 
@@ -165,9 +181,10 @@ function FollowingList({
           </Link>
           <button
             onClick={() => handleUnfollow(u)}
-            className="shrink-0 text-xs text-gray-400 hover:text-red-500 transition-colors"
+            disabled={pendingIds.has(u.user_id)}
+            className="shrink-0 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
           >
-            Unfollow
+            {pendingIds.has(u.user_id) ? '…' : 'Unfollow'}
           </button>
         </li>
       ))}
