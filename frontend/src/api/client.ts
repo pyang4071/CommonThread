@@ -131,7 +131,6 @@ export type Book = {
   description: string | null
   pacing: number | null
   page_count: number | null
-  language: string | null
   cover_url: string | null
   avg_rating: number | null
   created_at: string
@@ -277,7 +276,6 @@ export const api = {
       shelfStatus?: string
       pageCountMin?: number
       pageCountMax?: number
-      language?: string
       token?: string
     }) => {
       const qs = new URLSearchParams()
@@ -297,7 +295,6 @@ export const api = {
       if (params?.shelfStatus) qs.set('shelf_status', params.shelfStatus)
       if (params?.pageCountMin != null) qs.set('page_count_min', String(params.pageCountMin))
       if (params?.pageCountMax != null) qs.set('page_count_max', String(params.pageCountMax))
-      if (params?.language) qs.set('language', params.language)
       const path = '/books/' + (qs.toString() ? `?${qs.toString()}` : '')
       if (params?.token) return authedFetch('GET', path, params.token).then(r => r.json() as Promise<Book[]>)
       return get<Book[]>(path)
@@ -383,10 +380,6 @@ export const api = {
       authedFetch('POST', '/book-types/', token, data).then(r => r.json() as Promise<BookType>),
     delete: (id: number, token: string) =>
       authedFetch('DELETE', `/book-types/${id}`, token).then(() => {}),
-  },
-  ratings: {
-    myRatings: (token: string) =>
-      authedFetch('GET', '/ratings/my', token).then(r => r.json() as Promise<Rating[]>),
   },
   dislikes: {
     get: (bookId: number, token: string) =>

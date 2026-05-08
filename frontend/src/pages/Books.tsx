@@ -10,24 +10,6 @@ import { useSessionState } from '../hooks/useSessionState'
 
 const PAGE_SIZE = 30
 
-const LANGUAGE_OPTIONS: { code: string; label: string }[] = [
-  { code: 'eng', label: 'English' },
-  { code: 'spa', label: 'Spanish' },
-  { code: 'fre', label: 'French' },
-  { code: 'ger', label: 'German' },
-  { code: 'pol', label: 'Polish' },
-  { code: 'ita', label: 'Italian' },
-  { code: 'chi', label: 'Chinese' },
-  { code: 'rus', label: 'Russian' },
-  { code: 'por', label: 'Portuguese' },
-  { code: 'heb', label: 'Hebrew' },
-  { code: 'dut', label: 'Dutch' },
-  { code: 'gre', label: 'Greek' },
-  { code: 'jpn', label: 'Japanese' },
-  { code: 'cat', label: 'Catalan' },
-  { code: 'tur', label: 'Turkish' },
-  { code: 'dan', label: 'Danish' },
-]
 
 const SHELF_OPTIONS = [
   { value: 'want_to_read',      label: '🔖 Want to Read', active: 'bg-indigo-600 text-white',  inactive: 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100' },
@@ -200,9 +182,6 @@ export function Books() {
   // ── shelf filter ──
   const [shelfFilter, setShelfFilter] = useSessionState<string | undefined>('books:shelfFilter', undefined)
 
-  // ── language filter ──
-  const [languageFilter, setLanguageFilter] = useSessionState<string | undefined>('books:languageFilter', undefined)
-
   // ── page count range ──
   const [pageCountMin, setPageCountMin] = useSessionState<number | undefined>('books:pageCountMin', undefined)
   const [pageCountMax, setPageCountMax] = useSessionState<number | undefined>('books:pageCountMax', undefined)
@@ -229,7 +208,6 @@ export function Books() {
     excludeGenreIds: blocked.blocked_genre_ids,
     excludeBookTypeIds: blocked.blocked_book_type_ids,
     excludeToneIds: blocked.blocked_tone_ids,
-    language: languageFilter,
     pageCountMin,
     pageCountMax,
   }
@@ -238,7 +216,7 @@ export function Books() {
     selectedGenres.length + selectedBookTypes.length + selectedTones.length +
     selectedCategories.length + (pacing != null ? 1 : 0) +
     excludedTropes.length + excludedArchetypes.length +
-    (shelfFilter ? 1 : 0) + (languageFilter ? 1 : 0) +
+    (shelfFilter ? 1 : 0) +
     (pageCountMin != null ? 1 : 0) + (pageCountMax != null ? 1 : 0)
 
   // ── data loading ──
@@ -261,7 +239,6 @@ export function Books() {
     sharedFilterParams.excludeTropeIds.join(),
     sharedFilterParams.excludeArchetypeIds.join(),
     shelfFilter ?? '',
-    languageFilter ?? '',
     pageCountMin ?? '',
     pageCountMax ?? '',
   ].join('|')
@@ -535,27 +512,6 @@ export function Books() {
                   </button>
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Language filter */}
-          <div className="mt-4">
-            <p className="text-xs text-gray-500 mb-2">Language</p>
-            <div className="flex flex-wrap gap-2">
-              {LANGUAGE_OPTIONS.map(opt => (
-                <button
-                  key={opt.code}
-                  type="button"
-                  onClick={() => setLanguageFilter(languageFilter === opt.code ? undefined : opt.code)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                    languageFilter === opt.code
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
             </div>
           </div>
 

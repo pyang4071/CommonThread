@@ -101,7 +101,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Keyword search by title/author
 - **Vibe (semantic) search**: text query, alpha slider (`More tropes & archetypes` ↔ `More vibe & prose`), 4 example-query chips
 - **Hybrid search**: lexical full-text + semantic description via RRF; accessible from the search bar when toggled to hybrid mode
-- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, language, page count range (min/max number inputs with clear button)
+- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, page count range (min/max number inputs with clear button)
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
 - Card grid results with cover, title, author, pub year, avg rating, ReadingStatusButton
@@ -185,7 +185,7 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/books` | Optional | List books. Query: `skip`, `limit`, `search`, `genre_ids[]`, `book_type_ids[]`, `tone_ids[]`, `categories[]`, `pacing`, `page_count_min`, `page_count_max`, `language`, `exclude_trope_ids[]`, `exclude_archetype_ids[]`, `exclude_genre_ids[]`, `exclude_book_type_ids[]`, `exclude_tone_ids[]`, `shelf_status`. Returns `avg_rating`. Respects user's content blocklist if authenticated. |
+| GET | `/books` | Optional | List books. Query: `skip`, `limit`, `search`, `genre_ids[]`, `book_type_ids[]`, `tone_ids[]`, `categories[]`, `pacing`, `page_count_min`, `page_count_max`, `exclude_trope_ids[]`, `exclude_archetype_ids[]`, `exclude_genre_ids[]`, `exclude_book_type_ids[]`, `exclude_tone_ids[]`, `shelf_status`. Returns `avg_rating`. Respects user's content blocklist if authenticated. |
 | POST | `/books` | Admin | Create book. Triggers background: embed + cover fetch. |
 | GET | `/books/{id}` | Optional | Full book detail (tropes, archetypes, genres, types, tones, series, embedding status). |
 | PUT | `/books/{id}` | Admin | Update metadata. Re-embeds in background. |
@@ -330,7 +330,6 @@ Base path: `/api/v1`
 | description | TEXT | Nullable |
 | pacing | INT 1–5 | Nullable |
 | page_count | INT | Nullable |
-| language | VARCHAR | Nullable (e.g. `"eng"`) |
 | cover_url | VARCHAR | Nullable |
 | search_vector | TSVECTOR | GENERATED — auto-updated from title + description; used by hybrid lexical search |
 | genome_embedding | vector(384) | Structural signal (tropes, archetypes, genres, tones) |
@@ -654,7 +653,7 @@ Located at `backend/webscraper/`. Fetches book metadata from the Open Library AP
 
 ### ScrapedBook Fields
 
-`ol_work_key`, `ol_cover_id`, `title`, `authors[]`, `isbn`, `isbn13`, `publication_year`, `publisher`, `description`, `page_count`, `language`, `subjects[]`, `cover_url`, `discovered_via_subject`, `edition_count`
+`ol_work_key`, `ol_cover_id`, `title`, `authors[]`, `isbn`, `isbn13`, `publication_year`, `publisher`, `description`, `page_count`, `subjects[]`, `cover_url`, `discovered_via_subject`, `edition_count`
 
 ### Subjects (20 built-in)
 
