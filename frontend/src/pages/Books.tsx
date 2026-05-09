@@ -493,57 +493,24 @@ export function Books() {
               />
             </div>
 
-            {/* Pacing + Page Count — side by side */}
-            <div className="mt-4 flex flex-wrap gap-6">
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Pacing</p>
-                <div className="flex gap-2">
-                  {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                        pacing === i + 1
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-2">Page Count</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Min"
-                    value={pageCountMin ?? ''}
-                    onChange={e => setPageCountMin(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  <span className="text-xs text-gray-400">to</span>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Max"
-                    value={pageCountMax ?? ''}
-                    onChange={e => setPageCountMax(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  {(pageCountMin != null || pageCountMax != null) && (
-                    <button
-                      type="button"
-                      onClick={() => { setPageCountMin(undefined); setPageCountMax(undefined) }}
-                      className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
+            {/* Pacing */}
+            <div className="mt-4">
+              <p className="text-xs text-gray-500 mb-2">Pacing</p>
+              <div className="flex gap-2">
+                {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                      pacing === i + 1
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -574,7 +541,7 @@ export function Books() {
           {/* Exclude section */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Avoid</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               <ChipPicker
                 label="Tropes to exclude"
                 placeholder="Search tropes to exclude…"
@@ -598,6 +565,37 @@ export function Books() {
                 onRemove={a => setExcludedArchetypes(prev => prev.filter(x => x.archetype_id !== a.archetype_id))}
                 chipColor="exclude"
               />
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Page Count</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Min"
+                    value={pageCountMin ?? ''}
+                    onChange={e => setPageCountMin(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Max"
+                    value={pageCountMax ?? ''}
+                    onChange={e => setPageCountMax(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  {(pageCountMin != null || pageCountMax != null) && (
+                    <button
+                      type="button"
+                      onClick={() => { setPageCountMin(undefined); setPageCountMax(undefined) }}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
