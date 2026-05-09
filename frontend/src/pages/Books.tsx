@@ -454,7 +454,7 @@ export function Books() {
           {/* Include section */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Narrow down</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               <ChipPicker
                 label="Genres"
                 placeholder="Add a genre…"
@@ -505,6 +505,37 @@ export function Books() {
                 onAdd={a => setSelectedArchetypes(prev => [...prev, a])}
                 onRemove={a => setSelectedArchetypes(prev => prev.filter(x => x.archetype_id !== a.archetype_id))}
               />
+              <div>
+                <p className="text-xs text-gray-500 mb-1.5">Page Count</p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Min"
+                    value={pageCountMin ?? ''}
+                    onChange={e => setPageCountMin(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  <span className="text-xs text-gray-400">to</span>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Max"
+                    value={pageCountMax ?? ''}
+                    onChange={e => setPageCountMax(e.target.value ? Number(e.target.value) : undefined)}
+                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                  {(pageCountMin != null || pageCountMax != null) && (
+                    <button
+                      type="button"
+                      onClick={() => { setPageCountMin(undefined); setPageCountMax(undefined) }}
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Pacing + My Shelf — side by side */}
@@ -555,7 +586,7 @@ export function Books() {
           {/* Exclude section */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Avoid</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <ChipPicker
                 label="Tropes to exclude"
                 placeholder="Search tropes to exclude…"
@@ -579,37 +610,6 @@ export function Books() {
                 onRemove={a => setExcludedArchetypes(prev => prev.filter(x => x.archetype_id !== a.archetype_id))}
                 chipColor="exclude"
               />
-              <div>
-                <p className="text-xs text-gray-500 mb-1.5">Page Count</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Min"
-                    value={pageCountMin ?? ''}
-                    onChange={e => setPageCountMin(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  <span className="text-xs text-gray-400">to</span>
-                  <input
-                    type="number"
-                    min={1}
-                    placeholder="Max"
-                    value={pageCountMax ?? ''}
-                    onChange={e => setPageCountMax(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-24 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  />
-                  {(pageCountMin != null || pageCountMax != null) && (
-                    <button
-                      type="button"
-                      onClick={() => { setPageCountMin(undefined); setPageCountMax(undefined) }}
-                      className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>

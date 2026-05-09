@@ -704,6 +704,20 @@ AttributeError: <module 'app.crud.user_tags'> does not have the attribute 'setti
 
 ---
 
+### 2026-05-09 — 5-column filter grid still overflowed after `w-full` fix
+
+**Context**: `frontend/src/pages/Books.tsx` — "Narrow down" filter grid.
+
+**Error**: Even after changing ChipPicker to `w-full`, the 5 pickers still crowded each other because the grid columns themselves were too narrow at typical screen widths.
+
+**Root Cause**: A 5-column grid on a ~1280 px screen gives each cell ~220 px — too narrow for a usable typeahead input plus chips. The `w-full` fix made inputs respect their cell but didn't fix the cells being too small.
+
+**Fix**: Restructured to a 3-column grid. Row 1: Genres, Book Types, Tones. Row 2: Trope Categories, Archetypes, Page Count (moved here from the Avoid section). Avoid section reverted to 2 columns (Tropes to exclude, Archetypes to exclude).
+
+**Prevention**: For filter panels, prefer 3–4 columns max. More than 4 typeahead pickers in a row is cramped at standard laptop widths. When adding new pickers, let them wrap to a new row rather than squeezing more columns in.
+
+---
+
 ### 2026-05-09 — Stale `setLanguageFilter` reference caused Vercel build failure
 
 **Context**: `frontend/src/pages/Books.tsx` — `clearAll` function.
