@@ -64,9 +64,12 @@ Built for ECE 464.
 ```
 CommonThread/
 ├── README.md
-├── FEATURES.md             ← Full feature reference + API docs
 ├── SETUP.md                ← Local dev, Docker, and deployment guide
-├── error_log.md            ← Dev error log
+├── docs/
+│   ├── features.md         ← Full feature reference + API docs
+│   ├── schema.md           ← Database schema — every table and column explained
+│   ├── search_and_recommendations.md  ← Search and recommendation system deep-dive
+│   └── error_log.md        ← Dev error log
 ├── e2e/                    ← Playwright end-to-end tests
 │   ├── tests/              # 11 spec files, 57 tests
 │   ├── global-setup.ts     # Magic-link auth setup
@@ -97,5 +100,7 @@ CommonThread/
 
 ## Docs
 
-- [FEATURES.md](FEATURES.md) — full feature reference, API documentation, and architecture details
+- [docs/features.md](docs/features.md) — full feature reference, API documentation, and architecture details
+- [docs/schema.md](docs/schema.md) — database schema: every table and column explained
+- [docs/search_and_recommendations.md](docs/search_and_recommendations.md) — how search and recommendations work
 - [SETUP.md](SETUP.md) — local development, environment variables, Docker, Railway + Vercel deployment
