@@ -9,7 +9,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 1. [Authentication](#authentication)
 2. [Frontend Pages & Routes](#frontend-pages--routes)
 3. [Backend API Endpoints](#backend-api-endpoints)
-4. [Data Models](#data-models)
+4. [Data Models](schema.md) *(see schema.md)*
 5. [Embedding Architecture](#embedding-architecture)
 6. [Recommendation Engine](#recommendation-engine)
 7. [Background Services](#background-services)
@@ -304,74 +304,7 @@ Base path: `/api/v1`
 
 ## Data Models
 
-### Core Tables
-
-**`app_users`**
-| Field | Type | Notes |
-|---|---|---|
-| user_id | UUID PK | Auto (uuid4) |
-| name | VARCHAR | Nullable |
-| email | VARCHAR | Unique |
-| is_admin | BOOLEAN | Default false |
-| preferences | JSONB | `{blocked_genre_ids[], blocked_book_type_ids[], blocked_tone_ids[], profile_public}` |
-| created_at | TIMESTAMP | Auto |
-
-**`books`**
-| Field | Type | Notes |
-|---|---|---|
-| book_id | INT PK | Auto |
-| title | VARCHAR | Indexed |
-| author_id | INT FK → authors | |
-| isbn | VARCHAR | Unique, nullable |
-| publication_date | DATE | Nullable |
-| description | TEXT | Nullable |
-| pacing | INT 1–5 | Nullable |
-| page_count | INT | Nullable |
-| cover_url | VARCHAR | Nullable |
-| search_vector | TSVECTOR | GENERATED — auto-updated from title + description; used by hybrid lexical search |
-| genome_embedding | vector(384) | Structural signal (tropes, archetypes, genres, tones) |
-| description_embedding | vector(768) | Prose/vibe signal |
-| review_embedding | vector(768) | Aggregated review text signal; NULL until reviews are embedded |
-| review_embed_count | INT | Count of reviews that were included in the last review embed; used to batch re-embeds (only re-embed when `current_count - review_embed_count ≥ 5`) |
-| embedding_status | VARCHAR | `pending` \| `done` \| `failed`. `done` means description is embedded (minimum searchability); genome is additionally embedded when trope count ≥ 3 |
-| series_id | INT FK → series | Nullable, SET NULL on delete |
-| series_position | INT | Nullable |
-| created_at / updated_at / deleted_at | TIMESTAMP | Soft-delete via deleted_at |
-
-**`authors`** — `author_id`, `name` (indexed), `bio`
-
-**`tropes`** — `trope_id`, `name` (unique), `description`, `category` (indexed)
-
-**`archetypes`** — `archetype_id`, `name` (unique), `description`
-
-**`genres`** — `genre_id`, `name` (unique, indexed), `description`
-
-**`book_types`** — `book_type_id`, `name` (unique, indexed), `description`
-
-**`tones`** — `tone_id`, `name` (unique)
-
-**`series`** — `series_id`, `name` (unique), `description`
-
-### Relationship Tables
-
-| Table | Key Fields | Constraints |
-|---|---|---|
-| `book_tropes` | `(book_id, trope_id)` PK | `weight` float 0.0–1.0; `is_crowd_promoted` BOOLEAN (true = promoted from user tags, false = admin-set) |
-| `character_dna` | `(book_id, archetype_id)` PK | `importance` int 1–10; `is_crowd_promoted` BOOLEAN |
-| `book_genres` | `(book_id, genre_id)` PK | — |
-| `book_book_types` | `(book_id, book_type_id)` PK | — |
-| `book_tones` | `(book_id, tone_id)` PK | — |
-
-### User Interaction Tables
-
-| Table | Key Fields | Notes |
-|---|---|---|
-| `reading_statuses` | `(user_id, book_id)` PK | status: `want_to_read \| currently_reading \| read`; cascade delete |
-| `book_ratings` | `rating_id` PK; unique `(user_id, book_id)` | rating 1–5; review_text TEXT nullable; cascade delete |
-| `book_dislikes` | `(user_id, book_id)` PK | cascade delete |
-| `user_book_tropes` | `(user_id, book_id, trope_id)` PK | weight float 0.0–1.0; cascade delete |
-| `user_book_archetypes` | `(user_id, book_id, archetype_id)` PK | importance int 1–10; cascade delete |
-| `user_follows` | `(follower_id, followee_id)` PK | unique constraint; cascade delete |
+See [schema.md](schema.md) for the full table-by-table schema with column descriptions.
 
 ---
 
