@@ -224,6 +224,7 @@ export type HybridSearchRequest = {
   tone_ids?: number[]
   pacing?: number
   categories?: string[]
+  archetype_ids?: number[]
   exclude_trope_ids?: number[]
   exclude_archetype_ids?: number[]
   exclude_genre_ids?: number[]
@@ -266,6 +267,7 @@ export const api = {
       bookTypeIds?: number[]
       pacing?: number
       toneIds?: number[]
+      archetypeIds?: number[]
       excludeTropeIds?: number[]
       excludeArchetypeIds?: number[]
       excludeGenreIds?: number[]
@@ -285,6 +287,7 @@ export const api = {
       for (const id of params?.bookTypeIds ?? []) qs.append('book_type_ids', String(id))
       if (params?.pacing != null) qs.set('pacing', String(params.pacing))
       for (const id of params?.toneIds ?? []) qs.append('tone_ids', String(id))
+      for (const id of params?.archetypeIds ?? []) qs.append('archetype_ids', String(id))
       for (const id of params?.excludeTropeIds ?? []) qs.append('exclude_trope_ids', String(id))
       for (const id of params?.excludeArchetypeIds ?? []) qs.append('exclude_archetype_ids', String(id))
       for (const id of params?.excludeGenreIds ?? []) qs.append('exclude_genre_ids', String(id))

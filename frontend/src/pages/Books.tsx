@@ -176,6 +176,7 @@ export function Books() {
   const [selectedTones, setSelectedTones] = useSessionState<Tone[]>('books:selectedTones', [])
   const [selectedCategories, setSelectedCategories] = useSessionState<string[]>('books:selectedCategories', [])
   const [pacing, setPacing] = useSessionState<number | undefined>('books:pacing', undefined)
+  const [selectedArchetypes, setSelectedArchetypes] = useSessionState<Archetype[]>('books:selectedArchetypes', [])
   const [excludedTropes, setExcludedTropes] = useSessionState<Trope[]>('books:excludedTropes', [])
   const [excludedArchetypes, setExcludedArchetypes] = useSessionState<Archetype[]>('books:excludedArchetypes', [])
 
@@ -202,6 +203,7 @@ export function Books() {
     genreIds: selectedGenres.map(g => g.genre_id),
     bookTypeIds: selectedBookTypes.map(bt => bt.book_type_id),
     toneIds: selectedTones.map(t => t.tone_id),
+    archetypeIds: selectedArchetypes.map(a => a.archetype_id),
     pacing,
     excludeTropeIds: excludedTropes.map(t => t.trope_id),
     excludeArchetypeIds: excludedArchetypes.map(a => a.archetype_id),
@@ -214,7 +216,7 @@ export function Books() {
 
   const activeFilterCount =
     selectedGenres.length + selectedBookTypes.length + selectedTones.length +
-    selectedCategories.length + (pacing != null ? 1 : 0) +
+    selectedCategories.length + selectedArchetypes.length + (pacing != null ? 1 : 0) +
     excludedTropes.length + excludedArchetypes.length +
     (shelfFilter ? 1 : 0) +
     (pageCountMin != null ? 1 : 0) + (pageCountMax != null ? 1 : 0)
@@ -235,6 +237,7 @@ export function Books() {
     sharedFilterParams.genreIds.join(),
     sharedFilterParams.bookTypeIds.join(),
     sharedFilterParams.toneIds.join(),
+    sharedFilterParams.archetypeIds.join(),
     pacing,
     sharedFilterParams.excludeTropeIds.join(),
     sharedFilterParams.excludeArchetypeIds.join(),
@@ -285,6 +288,7 @@ export function Books() {
       tone_ids: sharedFilterParams.toneIds,
       pacing: sharedFilterParams.pacing,
       categories: sharedFilterParams.categories,
+      archetype_ids: sharedFilterParams.archetypeIds,
       exclude_trope_ids: sharedFilterParams.excludeTropeIds,
       exclude_archetype_ids: sharedFilterParams.excludeArchetypeIds,
       exclude_genre_ids: sharedFilterParams.excludeGenreIds,
@@ -314,7 +318,7 @@ export function Books() {
   const clearAll = () => {
     setSearchInput('')
     setSelectedGenres([]); setSelectedBookTypes([]); setSelectedTones([])
-    setSelectedCategories([]); setPacing(undefined)
+    setSelectedCategories([]); setSelectedArchetypes([]); setPacing(undefined)
     setExcludedTropes([]); setExcludedArchetypes([])
     setShelfFilter(undefined)
     setPageCountMin(undefined); setPageCountMax(undefined)
@@ -450,7 +454,7 @@ export function Books() {
           {/* Include section */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Narrow down</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
               <ChipPicker
                 label="Genres"
                 placeholder="Add a genre…"
@@ -490,6 +494,16 @@ export function Books() {
                 getName={c => c.name}
                 onAdd={c => setSelectedCategories(prev => [...prev, c.id])}
                 onRemove={c => setSelectedCategories(prev => prev.filter(x => x !== c.id))}
+              />
+              <ChipPicker
+                label="Archetypes"
+                placeholder="Add an archetype…"
+                selected={selectedArchetypes}
+                options={allArchetypes}
+                getKey={a => a.archetype_id}
+                getName={a => a.name}
+                onAdd={a => setSelectedArchetypes(prev => [...prev, a])}
+                onRemove={a => setSelectedArchetypes(prev => prev.filter(x => x.archetype_id !== a.archetype_id))}
               />
             </div>
 

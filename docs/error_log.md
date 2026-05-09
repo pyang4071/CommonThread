@@ -676,6 +676,52 @@ AttributeError: <module 'app.crud.user_tags'> does not have the attribute 'setti
 
 ---
 
+### 2026-05-09 — Header display name never updated after profile save
+
+**Context**: `frontend/src/App.tsx` — the `<Header>` component rendering the user's name in the top-right corner.
+
+**Error**: After saving a new display name on the Profile page, the name shown in the header remained unchanged until a full page reload.
+
+**Root Cause**: The header read `user.user_metadata?.name` from the Supabase auth object (`user` returned by `useAuth()`). The Supabase auth object is not updated by `api.users.updateMe()` — that call only updates the backend `app_users` row. The `profile` object (the `AppUser` returned by `api.users.me()`) is what gets updated and re-fetched after a profile save, but the header was not reading from it.
+
+**Fix**: Changed the header to destructure `profile` from `useAuth()` and render `profile?.name ?? user.email` in both the desktop and mobile nav variants.
+
+**Prevention**: `user` (Supabase auth object) and `profile` (AppUser from the backend) are separate data sources. `user.user_metadata` is only populated during OAuth flows and is not updated by backend profile writes. Always read display name and other user-editable fields from `profile`, not `user`.
+
+---
+
+### 2026-05-09 — Stale `setLanguageFilter` reference caused Vercel build failure
+
+**Context**: `frontend/src/pages/Books.tsx` — `clearAll` function.
+
+**Error**:
+```
+error TS2304: Cannot find name 'setLanguageFilter'
+```
+Vercel build failed; `npm run build` also failed locally.
+
+**Root Cause**: Migration `s3t4u5v6w7x8` dropped the `language` column from the `books` table. When the corresponding language filter UI was removed from Books.tsx, the `setLanguageFilter(undefined)` call inside `clearAll` was not removed. The state variable and setter were gone but the call site remained, causing a TypeScript name error that `vite dev` does not surface (it skips full type checking).
+
+**Fix**: Removed `setLanguageFilter(undefined)` from the `clearAll` function.
+
+**Prevention**: When removing a feature that has state (`useState`), search for all call sites of the setter before deleting the declaration. `vite dev` does not run `tsc` — always run `npm run build` (which calls `tsc -b`) before committing frontend changes to catch name errors.
+
+---
+
+### 2026-05-09 — Follow button double-click sent duplicate follow requests
+
+**Context**: `frontend/src/pages/Friends.tsx` — `UserSearchPanel` and `FollowingList` components.
+
+**Error**: Clicking the Follow or Unfollow button quickly twice fired two identical API requests, sometimes resulting in a toggled state or a 400/409 error from the backend.
+
+**Root Cause**: No in-flight guard on the button. Each click invoked the handler immediately regardless of whether a previous request was still in progress.
+
+**Fix**: Added a `pendingIds` state (`useState<Set<string>>(new Set())`) to both components. Each handler checks `if (pendingIds.has(u.user_id)) return` before proceeding, adds the ID to the set at the start, and removes it in the `finally` block. The button is also `disabled={pendingIds.has(u.user_id)}` with a `'…'` label while pending.
+
+**Prevention**: Any button that triggers a mutating API call should track in-flight state per-item (not just a single boolean) when multiple items can be acted on in the same view. A `Set<id>` pattern handles this cleanly and prevents double-submission without needing a debounce.
+
+---
+
 ### 2026-04-27 — `test_does_not_touch_genome_or_status` asserted stale behavior after embedding contract change
 
 **Context**: `backend/tests/test_recommendation_engine.py::TestEmbedDescriptionOnly::test_does_not_touch_genome_or_status`
