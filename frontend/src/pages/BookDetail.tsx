@@ -768,7 +768,14 @@ export function BookDetail() {
       {/* Similar Books */}
       {similarLoaded && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-1">Books Like This</h2>
+          <div className="flex items-baseline justify-between mb-1">
+            <h2 className="text-lg font-semibold text-gray-800">Books Like This</h2>
+            {similar.length > 0 && (
+              <Link to={`/books/${id}/similar`} className="text-sm text-indigo-600 hover:underline">
+                See all →
+              </Link>
+            )}
+          </div>
           <p className="text-xs text-gray-400 mb-4">Matched by tropes, archetypes &amp; genres — or by description when tropes are unavailable</p>
           {similar.length === 0 ? (
             <div className="bg-white border border-dashed border-gray-200 rounded-lg p-6 text-center space-y-1">

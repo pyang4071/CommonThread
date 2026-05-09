@@ -93,10 +93,10 @@ Browser (React 19 + TypeScript + Vite)
 
 ### Data pipeline
 
-1. **Scrape** — `backend/webscraper/` async HTTP scraper hits Open Library and writes JSONL. ~9,700 books scraped across 20 subjects.
+1. **Scrape** — `backend/webscraper/` async HTTP scraper hits Open Library and writes JSONL. ~14,000 books scraped across 20 subjects; 9,220 remain in JSONL files not yet tagged.
 2. **Tag** — Books are sent in batches to an LLM with the taxonomy reference. Trope/archetype/genre/tone tags are written back as JSON and reviewed.
-3. **Import** — `scripts/import_tagged_books.py` loads tagged JSON into Postgres idempotently; deduplicates by title+author.
-4. **Embed** — Admin "Embed All" queues all pending books. The FastAPI background task encodes each book's description (all books) and genome (books with ≥ 3 tropes) and writes the vectors back to `books`.
+3. **Import** — `scripts/import_tagged_books.py` loads tagged JSON into Postgres idempotently; deduplicates by title+author. 1,240 duplicate editions were soft-deleted during cleanup, leaving ~5,772 active books.
+4. **Embed** — Admin "Embed All" queues all pending books. The FastAPI background task encodes each book's description (all books) and genome (books with ≥ 3 tropes) and writes the vectors back to `books`. 648 books are fully tagged with tropes/archetypes and have genome embeddings.
 5. **Serve** — pgvector ANN queries run at request time for search and recommendations.
 
 ---
@@ -273,7 +273,7 @@ The entire codebase was built with AI assistance. This changed the work in a few
 
 ## 7. Scaling
 
-Current state: ~5,800 books, ~10 concurrent users, single Railway instance, single Supabase Postgres.
+Current state: ~5,772 books in DB (648 fully tagged with genome embeddings), single Railway instance, single Supabase Postgres.
 
 ### Bottleneck 1 — Embedding inference (in-process)
 
