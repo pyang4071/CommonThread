@@ -690,6 +690,20 @@ AttributeError: <module 'app.crud.user_tags'> does not have the attribute 'setti
 
 ---
 
+### 2026-05-09 — ChipPicker fixed `w-56` overflowed grid cells in 5-column filter layout
+
+**Context**: `frontend/src/pages/Books.tsx` — "Narrow down" filter grid after adding the Archetypes picker as a 5th column.
+
+**Error**: Filter inputs visually overlapped adjacent columns — each ChipPicker's text input extended into its neighbour's space.
+
+**Root Cause**: The `ChipPicker` component wrapped its input in `<div className="relative w-56">` — a hardcoded 224 px container. In a 5-column grid on a ~1280 px screen each cell is ~220 px, so the fixed width overflowed by a few pixels on every column. This was invisible with 4 or fewer columns but became apparent when a 5th picker was added.
+
+**Fix**: Changed `w-56` → `w-full` on the ChipPicker container div. The input now fills its grid cell regardless of column count.
+
+**Prevention**: Never use a fixed pixel width on a component that can be placed in a grid. Use `w-full` and let the parent grid/flex container control the width.
+
+---
+
 ### 2026-05-09 — Stale `setLanguageFilter` reference caused Vercel build failure
 
 **Context**: `frontend/src/pages/Books.tsx` — `clearAll` function.

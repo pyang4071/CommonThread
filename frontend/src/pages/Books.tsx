@@ -110,7 +110,7 @@ function ChipPicker<T>({
           ))}
         </div>
       )}
-      <div ref={ref} className="relative w-56">
+      <div ref={ref} className="relative w-full">
         <input
           value={query}
           onChange={e => setQuery(e.target.value)}
