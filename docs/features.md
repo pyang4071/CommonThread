@@ -68,7 +68,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 | Route | Page | Description |
 |---|---|---|
-| `/books` | Books | Browse, keyword-search, and filter all books; semantic vibe search; pagination |
+| `/books` | Books | Browse, keyword-search, and filter all books; hybrid search (lexical + semantic RRF); pagination |
 | `/books/:id` | BookDetail | Full book view — metadata, tropes, archetypes, cover, series, reviews, similar books, user actions |
 | `/tropes` | Tropes | Browse tropes by category, searchable |
 | `/archetypes` | Archetypes | Browse archetypes, searchable |
@@ -98,10 +98,8 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid
 
 #### Books (`/books`)
-- Keyword search by title/author
-- **Vibe (semantic) search**: text query, alpha slider (`More tropes & archetypes` ↔ `More vibe & prose`), 4 example-query chips
-- **Hybrid search**: lexical full-text + semantic description via RRF; accessible from the search bar when toggled to hybrid mode
-- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter, page count range (min/max number inputs with clear button)
+- **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge
+- **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), page count range (min/max number inputs with clear button), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
 - Card grid results with cover, title, author, pub year, avg rating, ReadingStatusButton
@@ -244,7 +242,6 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/search` | Optional | Vibe/semantic search. `q` (query), `alpha` (0–1, default 0.7 — higher = more structural/genome, lower = more description/prose), `limit`, plus same filter params as `/books`. Returns ranked `SearchResult[]` with `{book, score}`. Requires `genome_embedding IS NOT NULL`. |
 | POST | `/search/hybrid` | Optional | Hybrid search combining PostgreSQL full-text (lexical) and BGE-base description cosine similarity via Reciprocal Rank Fusion. Body: `{q, top_n, alpha (0–1, default 0.5 — higher = more lexical), min_score, genre_ids[], book_type_ids[], tone_ids[], pacing, categories[], exclude_*[]}`. Returns `HybridResult[]` with `{book, score, match_type: "both"\|"lexical"\|"semantic", lex_rank, sem_rank}`. Works for all books including those without genome embeddings. |
 
 ### Recommendations — `/recommendations`
@@ -398,19 +395,6 @@ Genres: Fantasy, Romance.
 Tone: Dark, Witty.
 Pacing: 4/5.
 ```
-
-### Vibe Search Scoring
-
-```
-score = alpha × cosine(query_genome, book_genome)
-      + (1 − alpha) × cosine(query_description, book_description)
-```
-
-- Default `alpha = 0.7` (70% structural, 30% vibe)
-- Books with no description use genome score alone regardless of alpha
-- Only books with `genome_embedding IS NOT NULL` are candidates
-- Query instruction prefix applied to both streams before encoding
-- pgvector HNSW index with `hnsw.ef_search = 40` for approximate nearest-neighbor
 
 ### Hybrid Search Scoring (RRF)
 

@@ -503,29 +503,6 @@ export const api = {
     get: () => get<{ status: string; models: { genome: string; description: string; review: string } }>('/health'),
   },
   search: {
-    semantic: (q: string, limit = 10, alpha = 0.7, filters?: {
-      genreIds?: number[]
-      bookTypeIds?: number[]
-      toneIds?: number[]
-      pacing?: number
-      categories?: string[]
-      excludeTropeIds?: number[]
-      excludeArchetypeIds?: number[]
-      pageCountMin?: number
-      pageCountMax?: number
-    }) => {
-      const qs = new URLSearchParams({ q, limit: String(limit), alpha: String(alpha) })
-      for (const id of filters?.genreIds ?? []) qs.append('genre_ids', String(id))
-      for (const id of filters?.bookTypeIds ?? []) qs.append('book_type_ids', String(id))
-      for (const id of filters?.toneIds ?? []) qs.append('tone_ids', String(id))
-      if (filters?.pacing != null) qs.set('pacing', String(filters.pacing))
-      for (const c of filters?.categories ?? []) qs.append('categories', c)
-      for (const id of filters?.excludeTropeIds ?? []) qs.append('exclude_trope_ids', String(id))
-      for (const id of filters?.excludeArchetypeIds ?? []) qs.append('exclude_archetype_ids', String(id))
-      if (filters?.pageCountMin != null) qs.set('page_count_min', String(filters.pageCountMin))
-      if (filters?.pageCountMax != null) qs.set('page_count_max', String(filters.pageCountMax))
-      return get<SimilarBook[]>(`/search/?${qs.toString()}`)
-    },
     hybrid: (body: HybridSearchRequest) =>
       fetch(`${BASE}/search/hybrid`, {
         method: 'POST',

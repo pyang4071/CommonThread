@@ -10,8 +10,7 @@ Built for ECE 464.
 
 - **"More like this"** similarity based on shared story structure (tropes + archetypes)
 - **Personalized recommendations** derived from a user's rating and shelf history
-- **Semantic vibe search** — understands "cozy mystery with slow-burn romance" as a query
-- **Hybrid search** combining full-text keyword matching with semantic description similarity via Reciprocal Rank Fusion
+- **Hybrid search** — understands "cozy mystery with slow-burn romance" as a query; combines full-text keyword matching with semantic description similarity via Reciprocal Rank Fusion
 - **Social layer** — follow other readers, activity feed, public shelves
 - **User tagging** — readers annotate books with tropes/archetypes; tags crowd-promote to canonical at ≥ 3 users
 
@@ -24,7 +23,7 @@ Built for ECE 464.
 | Backend API | Feature-complete |
 | Database schema | Stable (26 migrations) |
 | Embedding pipeline | Three-stream BGE (genome 384d, description 768d, review 768d) |
-| Search | Vibe/semantic + hybrid RRF |
+| Search | Hybrid RRF (lexical + semantic) |
 | Recommendations | Personalized + similar books |
 | Social / friends | Follow system, activity feed, public profiles |
 | User preferences | Content blocklist, privacy toggle |
