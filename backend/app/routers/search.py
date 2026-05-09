@@ -20,6 +20,7 @@ class HybridSearchRequest(BaseModel):
     tone_ids: list[int] = []
     pacing: int | None = None
     categories: list[str] = []
+    archetype_ids: list[int] = []
     # exclusion filters
     exclude_trope_ids: list[int] = []
     exclude_archetype_ids: list[int] = []
@@ -66,6 +67,7 @@ async def hybrid_search_endpoint(
         tone_ids=body.tone_ids,
         pacing=body.pacing,
         categories=body.categories,
+        archetype_ids=body.archetype_ids,
         exclude_trope_ids=body.exclude_trope_ids,
         exclude_archetype_ids=body.exclude_archetype_ids,
         exclude_genre_ids=body.exclude_genre_ids,

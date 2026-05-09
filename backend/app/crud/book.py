@@ -71,6 +71,7 @@ async def list_books(
     book_type_ids: list[int] | None = None,
     pacing: int | None = None,
     tone_ids: list[int] | None = None,
+    archetype_ids: list[int] | None = None,
     exclude_trope_ids: list[int] | None = None,
     exclude_archetype_ids: list[int] | None = None,
     exclude_genre_ids: list[int] | None = None,
@@ -117,6 +118,12 @@ async def list_books(
         stmt = stmt.where(
             Book.book_id.in_(
                 select(book_tones.c.book_id).where(book_tones.c.tone_id.in_(tone_ids))
+            )
+        )
+    if archetype_ids:
+        stmt = stmt.where(
+            Book.book_id.in_(
+                select(CharacterDNA.book_id).where(CharacterDNA.archetype_id.in_(archetype_ids))
             )
         )
     if exclude_trope_ids:

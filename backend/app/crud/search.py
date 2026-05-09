@@ -57,6 +57,7 @@ def _apply_filters(
     tone_ids: list[int],
     pacing: int | None,
     categories: list[str],
+    archetype_ids: list[int],
     exclude_trope_ids: list[int],
     exclude_archetype_ids: list[int],
     exclude_genre_ids: list[int],
@@ -92,6 +93,12 @@ def _apply_filters(
                 select(BookTrope.book_id)
                 .join(Trope, BookTrope.trope_id == Trope.trope_id)
                 .where(Trope.category.in_(categories))
+            )
+        )
+    if archetype_ids:
+        stmt = stmt.where(
+            Book.book_id.in_(
+                select(CharacterDNA.book_id).where(CharacterDNA.archetype_id.in_(archetype_ids))
             )
         )
     if exclude_trope_ids:
@@ -204,6 +211,7 @@ async def hybrid_search(
     tone_ids: list[int] | None = None,
     pacing: int | None = None,
     categories: list[str] | None = None,
+    archetype_ids: list[int] | None = None,
     exclude_trope_ids: list[int] | None = None,
     exclude_archetype_ids: list[int] | None = None,
     exclude_genre_ids: list[int] | None = None,
@@ -218,6 +226,7 @@ async def hybrid_search(
         tone_ids=tone_ids or [],
         pacing=pacing,
         categories=categories or [],
+        archetype_ids=archetype_ids or [],
         exclude_trope_ids=exclude_trope_ids or [],
         exclude_archetype_ids=exclude_archetype_ids or [],
         exclude_genre_ids=exclude_genre_ids or [],
