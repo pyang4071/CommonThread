@@ -493,48 +493,48 @@ export function Books() {
               />
             </div>
 
-            {/* Pacing */}
-            <div className="mt-4">
-              <p className="text-xs text-gray-500 mb-2">Pacing</p>
-              <div className="flex gap-2">
-                {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      pacing === i + 1
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* Pacing + My Shelf — side by side */}
+            <div className="mt-4 flex flex-wrap gap-6">
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Pacing</p>
+                <div className="flex gap-2">
+                  {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        pacing === i + 1
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {session && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">My Shelf</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SHELF_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setShelfFilter(shelfFilter === opt.value ? undefined : opt.value)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          shelfFilter === opt.value ? opt.active : opt.inactive
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Shelf filter — only shown when logged in */}
-          {session && (
-            <div className="mt-4">
-              <p className="text-xs text-gray-500 mb-2">My Shelf</p>
-              <div className="flex flex-wrap gap-2">
-                {SHELF_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setShelfFilter(shelfFilter === opt.value ? undefined : opt.value)}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      shelfFilter === opt.value ? opt.active : opt.inactive
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="border-t border-gray-100" />
 
