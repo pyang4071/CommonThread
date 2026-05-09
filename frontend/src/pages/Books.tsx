@@ -538,25 +538,46 @@ export function Books() {
               </div>
             </div>
 
-            {/* Pacing */}
-            <div className="mt-4">
-              <p className="text-xs text-gray-500 mb-2">Pacing</p>
-              <div className="flex gap-2">
-                {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                      pacing === i + 1
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* Pacing + My Shelf — 2-column grid so shelf always starts at center */}
+            <div className="mt-4 grid grid-cols-2 gap-5">
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Pacing</p>
+                <div className="flex flex-wrap gap-2">
+                  {(['Very Slow', 'Slow', 'Moderate', 'Fast', 'Very Fast'] as const).map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPacing(pacing === i + 1 ? undefined : i + 1)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        pacing === i + 1
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {session && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">My Shelf</p>
+                  <div className="flex flex-wrap gap-2">
+                    {SHELF_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setShelfFilter(shelfFilter === opt.value ? undefined : opt.value)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          shelfFilter === opt.value ? opt.active : opt.inactive
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -565,7 +586,7 @@ export function Books() {
           {/* Exclude section */}
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Avoid</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <ChipPicker
                 label="Tropes to exclude"
                 placeholder="Search tropes to exclude…"
@@ -589,25 +610,6 @@ export function Books() {
                 onRemove={a => setExcludedArchetypes(prev => prev.filter(x => x.archetype_id !== a.archetype_id))}
                 chipColor="exclude"
               />
-              {session && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-1.5">My Shelf</p>
-                  <div className="flex flex-wrap gap-2">
-                    {SHELF_OPTIONS.map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setShelfFilter(shelfFilter === opt.value ? undefined : opt.value)}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
-                          shelfFilter === opt.value ? opt.active : opt.inactive
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
