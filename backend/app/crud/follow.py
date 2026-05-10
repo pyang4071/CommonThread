@@ -157,3 +157,63 @@ async def get_feed(
     return entries[:limit]
 
 
+async def get_user_activity(
+    db: AsyncSession,
+    target_user_id: uuid.UUID,
+    limit: int = 20,
+    before: datetime | None = None,
+) -> list[FeedEntry]:
+    """Recent shelf + rating events for a single user."""
+    shelf_filters = [ReadingStatus.user_id == target_user_id]
+    if before is not None:
+        shelf_filters.append(ReadingStatus.updated_at < before)
+
+    shelf_rows = await db.execute(
+        select(ReadingStatus, AppUser, Book)
+        .join(AppUser, AppUser.user_id == ReadingStatus.user_id)
+        .join(Book, Book.book_id == ReadingStatus.book_id)
+        .where(*shelf_filters)
+        .order_by(desc(ReadingStatus.updated_at))
+        .limit(limit)
+    )
+
+    entries: list[FeedEntry] = []
+    for rs, user, book in shelf_rows:
+        entries.append(FeedEntry(
+            user=UserPublicProfile.model_validate(user),
+            book_id=book.book_id,
+            book_title=book.title,
+            book_cover_url=book.cover_url,
+            event_type=rs.status,
+            rating=None,
+            occurred_at=rs.updated_at.replace(tzinfo=None),
+        ))
+
+    rating_filters = [BookRating.user_id == target_user_id]
+    if before is not None:
+        rating_filters.append(BookRating.updated_at < before)
+
+    rating_rows = await db.execute(
+        select(BookRating, AppUser, Book)
+        .join(AppUser, AppUser.user_id == BookRating.user_id)
+        .join(Book, Book.book_id == BookRating.book_id)
+        .where(*rating_filters)
+        .order_by(desc(BookRating.updated_at))
+        .limit(limit)
+    )
+
+    for rating, user, book in rating_rows:
+        has_review = bool(rating.review_text and rating.review_text.strip())
+        entries.append(FeedEntry(
+            user=UserPublicProfile.model_validate(user),
+            book_id=book.book_id,
+            book_title=book.title,
+            book_cover_url=book.cover_url,
+            event_type="review" if has_review else "rating",
+            rating=rating.rating,
+            review_text=rating.review_text if has_review else None,
+            occurred_at=rating.updated_at.replace(tzinfo=None),
+        ))
+
+    entries.sort(key=lambda e: e.occurred_at, reverse=True)
+    return entries[:limit]

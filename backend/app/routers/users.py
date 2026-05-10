@@ -151,6 +151,27 @@ async def get_user_profile(
     return UserPublicProfile.model_validate(target)
 
 
+@router.get("/{user_id}/activity", response_model=list[FeedEntry])
+async def get_user_activity(
+    user_id: uuid.UUID,
+    limit: int = Query(default=20, le=50),
+    before: datetime | None = Query(default=None),
+    current_user: AppUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Recent shelf + rating activity for a specific user."""
+    if user_id != current_user.user_id:
+        target = await crud.user.get_by_id(db, user_id)
+        if not target:
+            raise HTTPException(status_code=404, detail="User not found")
+        prefs = target.preferences or {}
+        if not prefs.get("profile_public", True):
+            following = await crud.follow.is_following(db, current_user.user_id, user_id)
+            if not following:
+                raise HTTPException(status_code=403, detail="This profile is private")
+    return await crud.follow.get_user_activity(db, user_id, limit, before)
+
+
 @router.get("/{user_id}/shelf", response_model=list[ShelfEntry])
 async def get_user_shelf(
     user_id: uuid.UUID,

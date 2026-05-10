@@ -1,6 +1,6 @@
 # CommonThread — Feature Reference
 
-Complete inventory of all functionality in the frontend and backend as of 2026-05-05.
+Complete inventory of all functionality in the frontend and backend as of 2026-05-10.
 
 ---
 
@@ -78,7 +78,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 | `/my-tags` | MyTags | All books where the user has added personal trope/archetype tags; searchable |
 | `/profile` | Profile | Edit display name; manage content blocklist (genres, book types, tones); privacy toggle |
 | `/friends` | Friends | User search; follow/unfollow; following list; friend activity feed |
-| `/users/:userId` | UserProfile | Another user's public profile and shelf (respects privacy settings) |
+| `/users/:userId` | UserProfile | Another user's public profile, shelf, and recent activity sidebar (respects privacy settings) |
 
 ### Admin only
 
@@ -97,14 +97,15 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 #### Home (`/`)
 - **Logged out**: large hero with app name, tagline, Browse Books + Browse Tropes buttons
-- **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (8 books) with "See all →" link to `/for-you`
+- **Logged in**: compact one-line greeting using the user's current display name (from `profile.name`, reflects updates made in Profile); currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (8 books) with "See all →" link to `/for-you`
 
 #### Books (`/books`)
 - **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge
 - **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), page count range (min/max number inputs with clear button), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
-- Card grid results with cover, title, author, pub year, avg rating, ReadingStatusButton
+- Card grid results: horizontal cards with cover image inset (8 px padding from card edge), title, author, pub year, avg rating; ReadingStatusButton in a separate row below with top spacing so it doesn't crowd the cover
+- Trope category badges use distinct colors for all 8 real categories: Romance (pink), Character (blue), Narrative (amber), Worldbuilding (purple), Plot (teal), Mystery & Thriller (orange), Horror & Gothic (red), Science Fiction (sky blue)
 - Admin delete button per card (with confirmation modal)
 - Pagination: `Page N · X–Y shown` with disabled Next on last page
 
@@ -129,8 +130,9 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Three sections: Currently Reading, Want to Read, Read
 - Sort: Date Added (newest/oldest), Title A–Z
 - Inline title/author filter input with clear button
-- Each entry shows cover, title, author, ReadingStatusButton, star rating
-- Skeleton loading state
+- Same horizontal card format as Books tab: inset cover, title, author, pub year, avg rating, ReadingStatusButton below
+- **Per-section pagination**: 6 books shown initially (2 rows); "Show N more (X remaining)" button reveals 6 more at a time; visible count resets when sort or filter changes
+- Skeleton loading state matches card shape
 
 #### MyTags (`/my-tags`)
 - Filter input (searches book title, author name, or any tag name)
@@ -147,16 +149,19 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 #### Friends (`/friends`)
 - User search by name/email (debounced 300 ms, results dropdown)
 - Follow / Unfollow from search results
-- Following list with Unfollow buttons
-- Activity feed: read, currently reading, wants to read, rated, reviewed — with relative timestamps (Today / Yesterday / N days ago)
-- Activity feed auto-refreshes immediately after follow or unfollow
+- **Following list**: paginated at 8 per page with Prev / Next and a "page X / Y" counter; pagination only appears when following more than 8 users; resets to page 1 on follow/unfollow
+- **Activity feed**: paginated at 10 entries per page with Prev / Next controls; fetches 50 entries per API call as a buffer so page turns within the buffer are instant; transparently fetches the next batch when the user reaches the last buffered page; page number shown in the Activity header
+- Feed events: read, currently reading, wants to read, rated, reviewed — with relative timestamps (Today / Yesterday / N days ago)
+- Feed auto-refreshes (resets to page 1) immediately after follow or unfollow
 - Empty state messaging
 
 #### UserProfile (`/users/:userId`)
 - Breadcrumb: `Friends › Display Name`
-- Follow / Unfollow toggle
-- Displays public shelf (3-column grid) if profile is public or caller is following
-- Shows 403-style message if private and not following
+- Follow / Unfollow toggle; following the user immediately reloads their shelf
+- Two-column layout (desktop): shelf sections on the left (2/3 width), Recent Activity sidebar on the right (1/3 width)
+- **Shelf**: same horizontal card format as Shelf page (inset cover, title, author, pub year, avg rating); read-only (no status button); per-section pagination — 6 books initially, "Show N more" to reveal 6 more at a time
+- **Recent Activity sidebar**: shows the user's own shelf and rating events (same event types as the global feed); paginated 5 per page with Prev / Next; fetches 50 entries per batch; page counter shows "X / Y+" when more exist
+- Shows 403-style message if profile is private and caller is not following
 
 #### Admin (`/admin`)
 - Embed status bar (done / pending / failed with percentages)
@@ -286,6 +291,7 @@ Base path: `/api/v1`
 | GET | `/users/me/feed` | Required | Activity feed from followed users. `limit` (default 30, max 100). Event types: `read`, `want_to_read`, `currently_reading`, `rating`, `review`. |
 | GET | `/users/{user_id}/profile` | Required | Public profile. 403 if `profile_public=false` and caller is not following. |
 | GET | `/users/{user_id}/shelf` | Required | User's shelf. Same privacy rules as profile. |
+| GET | `/users/{user_id}/activity` | Required | Recent shelf + rating events for a specific user. `limit` (default 20, max 50), `before` (cursor). Same privacy rules as profile. |
 
 ### Admin — `/admin`
 
@@ -463,7 +469,8 @@ Both FastEmbed models are loaded at application startup in the FastAPI lifespan 
 - Follow / unfollow a user
 - Check follow status
 - List who the caller is following / who follows the caller
-- Activity feed of followed users' shelf and rating events
+- Activity feed of followed users' shelf and rating events (`/users/me/feed`)
+- Per-user activity feed for a specific user's own events (`/users/{user_id}/activity`) — respects the same privacy rules as the profile endpoint
 
 ### Privacy
 - `app_users.preferences.profile_public` (boolean) controls visibility
