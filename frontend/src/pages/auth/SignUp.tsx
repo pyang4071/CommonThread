@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { api } from '../../api/client'
 
 export function SignUp() {
   const [email, setEmail] = useState('')
@@ -14,6 +15,13 @@ export function SignUp() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    try {
+      await api.users.checkEmail(email)
+    } catch {
+      setError('An account with this email already exists.')
+      setLoading(false)
+      return
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,

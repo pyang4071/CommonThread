@@ -409,6 +409,8 @@ export const api = {
         .then(r => { if (!r.ok && r.status !== 404) throw new Error(`${r.status}`) }),
   },
   users: {
+    checkEmail: (email: string) =>
+      get<{ available: boolean }>(`/users/check-email?email=${encodeURIComponent(email)}`),
     me: (token: string) =>
       authedFetch('GET', '/users/me', token).then(r => r.json() as Promise<AppUser>),
     updateMe: (token: string, data: { name?: string | null; preferences?: UserPreferences }) =>

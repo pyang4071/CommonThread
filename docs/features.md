@@ -23,12 +23,13 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 ## Authentication
 
 ### Flow
-1. User signs up or logs in via **Supabase Auth** (email + password)
-2. Supabase issues a signed JWT
-3. Frontend (`AuthContext.tsx`) stores the session and attaches the JWT as `Authorization: Bearer <token>` on every API call
-4. FastAPI validates the JWT against the Supabase secret in `get_current_user()` / `get_optional_user()`
-5. On first authenticated request, a matching `app_users` row is **auto-created** (upsert) using the Supabase `sub` UUID and email from the token claims
-6. Admin status is checked via `app_users.is_admin`; non-admins hitting admin-gated endpoints get `403`
+1. **Sign-up**: frontend calls `GET /users/check-email` first — returns 409 if the email already exists in `app_users`; aborts with an error message before calling Supabase so no confirmation email is sent to an existing address
+2. User signs up or logs in via **Supabase Auth** (email + password)
+3. Supabase issues a signed JWT
+4. Frontend (`AuthContext.tsx`) stores the session and attaches the JWT as `Authorization: Bearer <token>` on every API call
+5. FastAPI validates the JWT against the Supabase secret in `get_current_user()` / `get_optional_user()`
+6. On first authenticated request, a matching `app_users` row is **auto-created** (upsert) using the Supabase `sub` UUID and email from the token claims
+7. Admin status is checked via `app_users.is_admin`; non-admins hitting admin-gated endpoints get `403`
 
 ### Frontend Auth Pages
 
@@ -279,6 +280,7 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
+| GET | `/users/check-email` | — | Check if an email is already registered. `email` query param. Returns `{available: true}` or 409 if taken. Called by the signup page before invoking Supabase Auth. |
 | GET | `/users/me` | Required | Own profile (name, email, is_admin, preferences JSONB). |
 | PUT | `/users/me` | Required | Update name and/or preferences (blocked lists, profile_public). |
 | GET | `/users/me/tags` | Required | All personal tags grouped by book. |
