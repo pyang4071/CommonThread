@@ -37,11 +37,14 @@ function ImportanceDots({ value }: { value: number }) {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Romance: 'bg-pink-100 text-pink-700',
-  Fantasy: 'bg-purple-100 text-purple-700',
-  Character: 'bg-blue-100 text-blue-700',
-  Narrative: 'bg-amber-100 text-amber-700',
-  Setting: 'bg-green-100 text-green-700',
+  Romance:            'bg-pink-100 text-pink-700',
+  Character:          'bg-blue-100 text-blue-700',
+  Narrative:          'bg-amber-100 text-amber-700',
+  Worldbuilding:      'bg-purple-100 text-purple-700',
+  Plot:               'bg-teal-100 text-teal-700',
+  'Mystery & Thriller': 'bg-orange-100 text-orange-700',
+  'Horror & Gothic':  'bg-red-100 text-red-700',
+  'Science Fiction':  'bg-sky-100 text-sky-700',
 }
 
 
