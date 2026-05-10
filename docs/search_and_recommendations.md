@@ -4,7 +4,7 @@
 
 ## Search
 
-The search bar uses **hybrid search exclusively** (`POST /search/hybrid`). The alpha slider that appears below the search bar when you type controls the lexical/semantic blend *within* that single hybrid call — higher alpha weights keyword matching more, lower alpha weights semantic description similarity more.
+The search bar uses **hybrid search exclusively** (`POST /search/hybrid`). The alpha slider that appears below the search bar when you type controls the lexical/semantic blend *within* that single hybrid call — higher alpha weights keyword matching more, lower alpha weights semantic description similarity more. Changing any filter or the alpha slider while a search is active immediately re-runs the search with the updated parameters.
 
 ### Hybrid Search
 
