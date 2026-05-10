@@ -26,6 +26,15 @@ class BookTagsEntry(BaseModel):
     model_config = {"from_attributes": True}
 
 
+@router.get("/check-email")
+async def check_email(email: str = Query(...), db: AsyncSession = Depends(get_db)):
+    """Returns 409 if the email is already registered, 200 otherwise."""
+    existing = await crud.user.get_by_email(db, email.lower().strip())
+    if existing:
+        raise HTTPException(status_code=409, detail="Email already in use")
+    return {"available": True}
+
+
 @router.get("/me", response_model=UserRead)
 async def get_me(current_user: AppUser = Depends(get_current_user)):
     return current_user
