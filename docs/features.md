@@ -100,7 +100,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Logged in**: compact one-line greeting using the user's current display name (from `profile.name`, reflects updates made in Profile); currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (8 books) with "See all →" link to `/for-you`
 
 #### Books (`/books`)
-- **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge
+- **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge; **changing any filter or the alpha slider while a search is active immediately re-runs the search**
 - **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), page count range (min/max number inputs with clear button), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
@@ -121,7 +121,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Your Tags section** (logged-in): typeahead to add personal trope tags (with weight slider) and archetype tags (with importance slider); remove with confirmation modal; once N users (default 3) tag the same trope/archetype, it is crowd-promoted to canonical
 - **Crowd-tagged badge** — teal `crowd-tagged` pill on any trope or archetype in the canonical list where `is_crowd_promoted = true`
 - Series strip (horizontal scroll of other books in series)
-- Reviews list — sortable by Newest / Oldest / Highest / Lowest (select shown when 2+ reviews)
+- Reviews list — sortable by Newest / Oldest / Highest / Lowest (select shown when 2+ reviews); paginated at 5 per page with Previous / Next and a page counter; changing sort resets to page 1
 - Similar Books grid (6 books) with shared-trope/archetype chips and match % badges; "See all →" link to `/books/:id/similar` for the full list of up to 100; empty state for unembedded books
 - Back-to-top floating button (appears after 300 px scroll)
 - Admin Edit button (admin only)
