@@ -255,15 +255,17 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const FEED_LIMIT = 30
+const FEED_PAGE_SIZE = 10
+const FEED_FETCH_SIZE = 50
 
 export function Friends() {
   const { session } = useAuth()
   const toast = useToast()
   const [following, setFollowing] = useState<UserPublicProfile[]>([])
-  const [feed, setFeed] = useState<FeedEntry[]>([])
+  const [allEntries, setAllEntries] = useState<FeedEntry[]>([])
+  const [page, setPage] = useState(0)
   const [feedLoading, setFeedLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
+  const [fetchingMore, setFetchingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [feedVersion, setFeedVersion] = useState(0)
   useEffect(() => { document.title = 'Friends — CommonThread' }, [])
@@ -279,30 +281,36 @@ export function Friends() {
 
   useEffect(() => {
     if (!session) return
-    const token = session.access_token
     setFeedLoading(true)
-    api.users.feed(token, FEED_LIMIT)
+    setPage(0)
+    api.users.feed(session.access_token, FEED_FETCH_SIZE)
       .then(entries => {
-        setFeed(entries)
-        setHasMore(entries.length === FEED_LIMIT)
+        setAllEntries(entries)
+        setHasMore(entries.length === FEED_FETCH_SIZE)
       })
       .catch(() => toast.error('Failed to load activity feed.'))
       .finally(() => setFeedLoading(false))
   }, [session, feedVersion])
 
-  const loadMore = async () => {
-    if (!session || feed.length === 0) return
-    setLoadingMore(true)
+  const fetchNextBatch = async () => {
+    if (!session || allEntries.length === 0 || fetchingMore) return
+    setFetchingMore(true)
     try {
-      const cursor = feed[feed.length - 1].occurred_at
-      const entries = await api.users.feed(session.access_token, FEED_LIMIT, cursor)
-      setFeed(prev => [...prev, ...entries])
-      setHasMore(entries.length === FEED_LIMIT)
+      const cursor = allEntries[allEntries.length - 1].occurred_at
+      const entries = await api.users.feed(session.access_token, FEED_FETCH_SIZE, cursor)
+      setAllEntries(prev => [...prev, ...entries])
+      setHasMore(entries.length === FEED_FETCH_SIZE)
     } catch {
       toast.error('Failed to load more activity.')
     } finally {
-      setLoadingMore(false)
+      setFetchingMore(false)
     }
+  }
+
+  const goToPage = async (next: number) => {
+    const needed = (next + 1) * FEED_PAGE_SIZE
+    if (needed > allEntries.length && hasMore) await fetchNextBatch()
+    setPage(next)
   }
 
   if (!session) return null
@@ -316,6 +324,11 @@ export function Friends() {
     setFollowing(prev => prev.filter(u => u.user_id !== userId))
     setFeedVersion(v => v + 1)
   }
+
+  const pageEntries = allEntries.slice(page * FEED_PAGE_SIZE, (page + 1) * FEED_PAGE_SIZE)
+  const totalPages = Math.ceil(allEntries.length / FEED_PAGE_SIZE)
+  const isLastKnownPage = page === totalPages - 1
+  const canGoNext = !isLastKnownPage || hasMore
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -344,7 +357,12 @@ export function Friends() {
 
         {/* Feed */}
         <div className="sm:col-span-2 bg-white border border-gray-200 rounded-xl p-5">
-          <h2 className="text-base font-semibold text-gray-800 mb-1">Activity</h2>
+          <div className="flex items-baseline justify-between mb-1">
+            <h2 className="text-base font-semibold text-gray-800">Activity</h2>
+            {!feedLoading && allEntries.length > 0 && (
+              <span className="text-xs text-gray-400">Page {page + 1}</span>
+            )}
+          </div>
           <p className="text-xs text-gray-400 mb-3">Recent reads and ratings from people you follow</p>
 
           {feedLoading && (
@@ -361,7 +379,7 @@ export function Friends() {
             </div>
           )}
 
-          {!feedLoading && feed.length === 0 && (
+          {!feedLoading && allEntries.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-6">
               {following.length === 0
                 ? 'Follow some readers to see their activity here.'
@@ -369,20 +387,29 @@ export function Friends() {
             </p>
           )}
 
-          {!feedLoading && feed.length > 0 && (
+          {!feedLoading && pageEntries.length > 0 && (
             <div className="divide-y divide-gray-100">
-              {feed.map((entry, i) => <FeedItem key={i} entry={entry} />)}
+              {pageEntries.map((entry, i) => <FeedItem key={i} entry={entry} />)}
             </div>
           )}
 
-          {!feedLoading && hasMore && (
-            <button
-              onClick={loadMore}
-              disabled={loadingMore}
-              className="mt-4 w-full text-sm text-indigo-600 hover:text-indigo-800 disabled:text-gray-400 transition-colors"
-            >
-              {loadingMore ? 'Loading…' : 'Load more'}
-            </button>
+          {!feedLoading && allEntries.length > 0 && (
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <button
+                onClick={() => goToPage(page + 1)}
+                disabled={!canGoNext || fetchingMore}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {fetchingMore ? 'Loading…' : 'Next →'}
+              </button>
+            </div>
           )}
         </div>
       </div>
