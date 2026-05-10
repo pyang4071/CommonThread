@@ -215,10 +215,17 @@ Tone: Epic, Lyrical.
 Pacing: 2/5.
 ```
 
-The recommendation scoring blends all three streams. For Similar Books:
+The recommendation scoring blends all three streams. For Similar Books, the embedding score itself is first computed as a trope-count-weighted blend of genome and description cosines:
 
 ```
-base_score = 0.5 × embedding_cosine + 0.5 × sparse_dot_product
+genome_weight   = min(trope_count / 8, 1.0)
+embedding_score = genome_weight × genome_cosine + (1 − genome_weight) × description_cosine
+```
+
+This means a 3-trope book leans 63% on description similarity and 37% on genome, while a fully-tagged book relies entirely on genome. The embedding score and sparse dot product are then combined:
+
+```
+base_score  = 0.5 × embedding_score + 0.5 × sparse_dot_product
 final_score = 0.80 × base_score + 0.20 × review_cosine   (when review_embedding exists)
 ```
 
