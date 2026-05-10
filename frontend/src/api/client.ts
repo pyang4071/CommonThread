@@ -450,6 +450,11 @@ export const api = {
       }),
     shelf: (token: string, userId: string) =>
       authedFetch('GET', `/users/${userId}/shelf`, token).then(r => r.json() as Promise<ShelfEntry[]>),
+    activity: (token: string, userId: string, limit = 50, before?: string) => {
+      const params = new URLSearchParams({ limit: String(limit) })
+      if (before) params.set('before', before)
+      return authedFetch('GET', `/users/${userId}/activity?${params}`, token).then(r => r.json() as Promise<FeedEntry[]>)
+    },
   },
   admin: {
     embedStatus: (token: string) =>
