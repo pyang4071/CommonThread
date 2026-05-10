@@ -135,7 +135,7 @@ function UserSearchPanel({
 
 // ── Following list ────────────────────────────────────────────────────────────
 
-const FOLLOWING_PAGE_SIZE = 8
+const FOLLOWING_PAGE_SIZE = 10
 
 function FollowingList({
   users,
@@ -284,7 +284,7 @@ function FeedItem({ entry }: { entry: FeedEntry }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-const FEED_PAGE_SIZE = 10
+const FEED_PAGE_SIZE = FOLLOWING_PAGE_SIZE
 const FEED_FETCH_SIZE = 50
 
 export function Friends() {
