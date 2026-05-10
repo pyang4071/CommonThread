@@ -13,38 +13,50 @@ const SECTIONS: { status: StatusValue; label: string; icon: string; emptyLabel: 
   { status: 'read',              label: 'Read',              icon: '✓',  emptyLabel: 'No finished books yet.' },
 ]
 
-function BookCover({ entry, token, onChange }: {
+function BookCard({ entry, token, onChange }: {
   entry: ShelfEntry
   token: string
   onChange: (bookId: number, status: StatusValue | null) => void
 }) {
   const { book } = entry
   return (
-    <div className="flex flex-col gap-2">
-      <Link to={`/books/${book.book_id}`} state={{ from: '/shelf' }} className="group block">
-        {book.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt={`Cover of ${book.title}`}
-            className="w-full h-44 object-cover rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-          />
-        ) : (
-          <div className="w-full h-44 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg shadow-sm flex items-center justify-center text-4xl group-hover:shadow-md transition-shadow select-none">
-            📖
-          </div>
-        )}
-        <p className="mt-2 text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{book.title}</p>
-        <p className="text-xs text-gray-400 mt-0.5 truncate">{book.author.name}</p>
+    <div className="bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
+      <Link to={`/books/${book.book_id}`} state={{ from: '/shelf', fromLabel: 'My Shelf' }} className="flex flex-1 min-h-0">
+        <div className="p-2 pr-0 self-stretch flex shrink-0">
+          {book.cover_url ? (
+            <img src={book.cover_url} alt="" className="w-20 h-full object-cover rounded-lg" />
+          ) : (
+            <div className="w-20 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-lg">📖</div>
+          )}
+        </div>
+        <div className="p-3 flex-1 min-w-0">
+          <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{book.title}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{book.author.name}</p>
+          {book.publication_date && (
+            <p className="text-xs text-gray-400 mt-0.5">{new Date(book.publication_date).getFullYear()}</p>
+          )}
+          {book.avg_rating != null ? (
+            <span className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">
+              <span className="text-amber-400">★</span>{book.avg_rating.toFixed(1)}
+            </span>
+          ) : (
+            <span className="mt-1 block text-xs text-gray-300">No ratings</span>
+          )}
+        </div>
       </Link>
-      <ReadingStatusButton
-        bookId={book.book_id}
-        token={token}
-        initial={entry.status as StatusValue}
-        onChange={s => onChange(book.book_id, s)}
-      />
+      <div className="px-3 pt-1 pb-3">
+        <ReadingStatusButton
+          bookId={book.book_id}
+          token={token}
+          initial={entry.status as StatusValue}
+          onChange={s => onChange(book.book_id, s)}
+        />
+      </div>
     </div>
   )
 }
+
+const PAGE_SIZE = 6
 
 type SortKey = 'title' | 'newest' | 'oldest'
 
@@ -89,6 +101,9 @@ export function Shelf() {
   }
 
   const [query, setQuery] = useSessionState('shelf:query', '')
+  const [visible, setVisible] = useState<Record<string, number>>({})
+
+  useEffect(() => { setVisible({}) }, [query, sort])
 
   const total = entries.length
   const filtered = entries.filter(e =>
@@ -135,15 +150,18 @@ export function Shelf() {
 
       {loading ? (
         <div className="space-y-10">
-          {[4, 6].map((n, si) => (
+          {[3, 6].map((n, si) => (
             <div key={si}>
               <div className="h-5 w-40 bg-gray-200 rounded animate-pulse mb-4" />
-              <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-${n === 4 ? '4' : '6'} gap-4`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Array.from({ length: n }).map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="w-full h-44 bg-gray-200 rounded-lg" />
-                    <div className="mt-2 h-3 bg-gray-200 rounded w-full" />
-                    <div className="mt-1 h-3 bg-gray-200 rounded w-2/3" />
+                  <div key={i} className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse flex">
+                    <div className="w-20 shrink-0 bg-gray-200 self-stretch" />
+                    <div className="p-3 flex-1 space-y-2">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded" />
+                      <div className="h-3 w-1/2 bg-gray-200 rounded" />
+                      <div className="h-3 w-1/3 bg-gray-200 rounded" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -165,6 +183,9 @@ export function Shelf() {
         SECTIONS.map(({ status, label, icon }) => {
           const section = sortEntries(filtered.filter(e => e.status === status), sort)
           if (section.length === 0) return null
+          const limit = visible[status] ?? PAGE_SIZE
+          const shown = section.slice(0, limit)
+          const remaining = section.length - limit
           return (
             <div key={status}>
               <div className="flex items-baseline gap-2 mb-4">
@@ -173,9 +194,9 @@ export function Shelf() {
                 </h2>
                 <span className="text-sm text-gray-400">{section.length} book{section.length !== 1 ? 's' : ''}</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                {section.map(entry => (
-                  <BookCover
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {shown.map(entry => (
+                  <BookCard
                     key={entry.book.book_id}
                     entry={entry}
                     token={session!.access_token}
@@ -183,6 +204,15 @@ export function Shelf() {
                   />
                 ))}
               </div>
+              {remaining > 0 && (
+                <button
+                  onClick={() => setVisible(prev => ({ ...prev, [status]: limit + PAGE_SIZE }))}
+                  className="mt-4 w-full py-2 text-sm text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 transition-colors"
+                >
+                  Show {Math.min(remaining, PAGE_SIZE)} more
+                  <span className="ml-1 text-xs text-gray-400">({remaining} remaining)</span>
+                </button>
+              )}
             </div>
           )
         })
