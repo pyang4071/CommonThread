@@ -150,7 +150,7 @@ const SECTIONS: { status: string; label: string; icon: string }[] = [
   { status: 'read',              label: 'Read',              icon: '✓'  },
 ]
 
-const PAGE_SIZE = 6
+const PAGE_SIZE = 4
 
 function BookCard({ book }: { book: ShelfEntry['book'] }) {
   return (
