@@ -304,7 +304,7 @@ export const api = {
     },
     authors: () => get<Author[]>('/books/authors'),
     get: (id: number) => get<BookDetail>(`/books/${id}`),
-    similar: (id: number, limit = 6) => get<SimilarBook[]>(`/recommendations/${id}/similar?limit=${limit}`),
+    similar: (id: number, limit = 100) => get<SimilarBook[]>(`/recommendations/${id}/similar?limit=${limit}`),
     attachTrope: (bookId: number, tropeId: number, weight: number) =>
       post<void>(`/books/${bookId}/tropes`, { trope_id: tropeId, weight }),
     attachArchetype: (bookId: number, archetypeId: number, importance: number) =>

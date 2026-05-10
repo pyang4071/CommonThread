@@ -95,7 +95,7 @@ export function BookDetail() {
       .then(setBook)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-    api.books.similar(bookId).then(s => { setSimilar(s); setSimilarLoaded(true) }).catch(() => setSimilarLoaded(true))
+    api.books.similar(bookId, 6).then(s => { setSimilar(s); setSimilarLoaded(true) }).catch(() => setSimilarLoaded(true))
     api.books.getReviews(bookId).then(setReviews).catch(() => {})
     api.books.getSeries(bookId).then(setSeriesBooks).catch(() => {})
   }, [id])
