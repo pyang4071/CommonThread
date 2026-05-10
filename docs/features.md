@@ -97,7 +97,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 #### Home (`/`)
 - **Logged out**: large hero with app name, tagline, Browse Books + Browse Tropes buttons
-- **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (10 books) with "See all →" link to `/for-you`
+- **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (8 books) with "See all →" link to `/for-you`
 
 #### Books (`/books`)
 - **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge

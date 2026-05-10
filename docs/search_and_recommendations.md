@@ -140,4 +140,4 @@ Books without a review embedding are unaffected — their embedding score is use
 
 Up to one third of the final results can come from a collaborative signal: other users with similar taste profiles (measured by genome cosine similarity of their own preference vectors) who have highly rated books the current user hasn't seen. This adds serendipity — books that don't score highest on pure similarity but are consistently loved by readers with similar taste.
 
-The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's history, and whether the source was `"embedding"` or `"collaborative"`. The Home page shows the top 10 with a "See all →" link to `/for-you` which fetches up to 50.
+The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's history, and whether the source was `"embedding"` or `"collaborative"`. The Home page shows the top 8 with a "See all →" link to `/for-you` which fetches up to 50.

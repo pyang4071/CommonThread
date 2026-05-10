@@ -169,7 +169,7 @@ export function Home() {
       .finally(() => setShelfLoading(false))
 
     setRecsLoading(true)
-    api.books.forYou(session.access_token)
+    api.books.forYou(session.access_token, 8)
       .then(setRecs)
       .catch(() => toast.error('Failed to load recommendations.'))
       .finally(() => setRecsLoading(false))
