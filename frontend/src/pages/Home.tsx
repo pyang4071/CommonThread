@@ -147,7 +147,7 @@ function FriendFeedStrip({ feed }: { feed: FeedEntry[] }) {
 }
 
 export function Home() {
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
   const toast = useToast()
   const [recs, setRecs] = useState<SimilarBook[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
@@ -188,7 +188,7 @@ export function Home() {
       {session ? (
         <div className="flex items-center justify-between">
           <p className="text-base font-medium text-gray-700">
-            Welcome back, {session.user.user_metadata?.name ?? session.user.email?.split('@')[0] ?? 'reader'}
+            Welcome back, {profile?.name ?? session.user.email?.split('@')[0] ?? 'reader'}
           </p>
           <div className="flex gap-2">
             <Link to="/books" className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
