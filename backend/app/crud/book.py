@@ -686,12 +686,14 @@ async def get_similar_books(
     if book is None:
         return []
 
-    # Over-fetch candidates via embedding for re-ranking.
-    # Use genome stream when available; fall back to description stream.
-    # Return empty when neither stream is populated (book has no signal).
+    # ANN uses genome when available, falls back to description.
+    # Description is blended in alongside genome when both exist —
+    # the blend weight ramps with trope count so sparse books lean on
+    # description more and fully-tagged books lean on genome more.
     await db.execute(text("SET LOCAL hnsw.ef_search = 40"))
 
-    if book.genome_embedding is not None:
+    use_genome = book.genome_embedding is not None
+    if use_genome:
         search_vec = book.genome_embedding
         search_col = Book.genome_embedding
         where_emb = Book.genome_embedding.is_not(None)
@@ -711,28 +713,29 @@ async def get_similar_books(
     )
     rows = emb_result.all()
     candidate_books = {row.Book.book_id: row.Book for row in rows}
-    emb_scores: dict[int, float] = {row.Book.book_id: 1 - row.distance for row in rows}
+    primary_scores: dict[int, float] = {row.Book.book_id: 1 - row.distance for row in rows}
 
     if not candidate_books:
         return []
 
     candidate_ids = list(candidate_books.keys())
-    sparse_scores, rev_emb_q = await asyncio.gather(
-        sparse_similarity_scores(db, book_id, candidate_ids),
-        db.execute(
-            select(Book.book_id, Book.review_embedding)
-            .where(
-                Book.book_id.in_([book_id] + candidate_ids),
-                Book.review_embedding.is_not(None),
-            )
-        ),
+
+    # Sequential queries — single AsyncSession cannot run concurrent ops
+    sparse_scores = await sparse_similarity_scores(db, book_id, candidate_ids)
+
+    rev_emb_q = await db.execute(
+        select(Book.book_id, Book.review_embedding)
+        .where(
+            Book.book_id.in_([book_id] + candidate_ids),
+            Book.review_embedding.is_not(None),
+        )
     )
     review_embs_sim: dict[int, np.ndarray] = {
         row.book_id: np.array(row.review_embedding) for row in rev_emb_q
     }
     src_review = review_embs_sim.get(book_id)
 
-    # Load source book's tropes and archetypes for explanation
+    # Load source book's tropes and archetypes for explanation + trope count
     src_tropes_q = await db.execute(
         select(BookTrope.trope_id, Trope.name)
         .join(Trope, BookTrope.trope_id == Trope.trope_id)
@@ -765,6 +768,38 @@ async def get_similar_books(
     cand_archs: dict[int, dict[int, str]] = {}
     for row in cand_arch_q:
         cand_archs.setdefault(row.book_id, {})[row.archetype_id] = row.name
+
+    # Build embedding scores: blend genome + description weighted by trope count.
+    # genome_weight ramps from 0→1 over the first 8 tropes so books with few
+    # tropes lean on description more and fully-tagged books lean on genome more.
+    emb_scores: dict[int, float]
+    if use_genome and book.description_embedding is not None:
+        trope_count = len(src_trope_ids)
+        genome_weight = min(trope_count / 8.0, 1.0)
+        desc_weight = 1.0 - genome_weight
+
+        cand_desc_q = await db.execute(
+            select(Book.book_id, Book.description_embedding)
+            .where(
+                Book.book_id.in_(candidate_ids),
+                Book.description_embedding.is_not(None),
+            )
+        )
+        cand_desc_embs: dict[int, np.ndarray] = {
+            row.book_id: np.array(row.description_embedding) for row in cand_desc_q
+        }
+        src_desc = np.array(book.description_embedding)
+
+        emb_scores = {}
+        for bid in candidate_ids:
+            g = primary_scores.get(bid, 0.0)
+            if bid in cand_desc_embs:
+                d = _cosine_sim(src_desc, cand_desc_embs[bid])
+                emb_scores[bid] = genome_weight * g + desc_weight * d
+            else:
+                emb_scores[bid] = g
+    else:
+        emb_scores = primary_scores
 
     # Blend scores and attach explanations
     alpha = 0.5
