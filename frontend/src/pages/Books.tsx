@@ -639,11 +639,13 @@ export function Books() {
               {hybridResults.map(({ book, score, match_type }) => (
                 <div key={book.book_id} className="bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
                   <Link to={`/books/${book.book_id}`} className="flex flex-1 min-h-0">
-                    {book.cover_url ? (
-                      <img src={book.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch rounded-tl-lg rounded-bl-lg" />
-                    ) : (
-                      <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-tl-lg rounded-bl-lg">📖</div>
-                    )}
+                    <div className="p-2 pr-0 self-stretch flex shrink-0">
+                      {book.cover_url ? (
+                        <img src={book.cover_url} alt="" className="w-20 h-full object-cover rounded-lg" />
+                      ) : (
+                        <div className="w-20 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-lg">📖</div>
+                      )}
+                    </div>
                     <div className="p-3 flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{book.title}</p>
@@ -668,7 +670,7 @@ export function Books() {
                     </div>
                   </Link>
                   {(session || isAdmin) && (
-                    <div className="px-3 pb-3 flex items-center justify-between gap-2">
+                    <div className="px-3 pt-1 pb-3 flex items-center justify-between gap-2">
                       {session ? (
                         <ReadingStatusButton
                           bookId={book.book_id}
@@ -720,11 +722,13 @@ export function Books() {
                 {books.slice(0, PAGE_SIZE).map(b => (
                   <div key={b.book_id} className="bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col">
                     <Link to={`/books/${b.book_id}`} className="flex flex-1 min-h-0">
-                      {b.cover_url ? (
-                        <img src={b.cover_url} alt="" className="w-20 shrink-0 object-cover self-stretch rounded-tl-lg rounded-bl-lg" />
-                      ) : (
-                        <div className="w-20 shrink-0 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-tl-lg rounded-bl-lg">📖</div>
-                      )}
+                      <div className="p-2 pr-0 self-stretch flex shrink-0">
+                        {b.cover_url ? (
+                          <img src={b.cover_url} alt="" className="w-20 h-full object-cover rounded-lg" />
+                        ) : (
+                          <div className="w-20 bg-gray-100 flex items-center justify-center text-gray-300 text-2xl select-none rounded-lg">📖</div>
+                        )}
+                      </div>
                       <div className="p-3 flex-1 min-w-0">
                         <p className="font-medium text-gray-800 text-sm leading-snug line-clamp-2">{b.title}</p>
                         <p className="text-xs text-gray-500 mt-0.5">{b.author.name}</p>
@@ -741,7 +745,7 @@ export function Books() {
                       </div>
                     </Link>
                     {(session || isAdmin) && (
-                      <div className="px-3 pb-3 flex items-center justify-between gap-2">
+                      <div className="px-3 pt-1 pb-3 flex items-center justify-between gap-2">
                         {session ? (
                           <ReadingStatusButton
                             bookId={b.book_id}
