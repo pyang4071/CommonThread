@@ -315,6 +315,11 @@ export function Books() {
     debounceRef.current = setTimeout(() => runHybridSearch(value), 300)
   }
 
+  useEffect(() => {
+    if (!searchInput.trim()) return
+    runHybridSearch(searchInput)
+  }, [filterKey, alpha])
+
   const clearAll = () => {
     setSearchInput('')
     setSelectedGenres([]); setSelectedBookTypes([]); setSelectedTones([])
