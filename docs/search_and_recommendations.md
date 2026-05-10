@@ -55,11 +55,18 @@ The result includes a `match_type` field — `"both"`, `"lexical"`, or `"semanti
 
 This is the simpler of the two. Given a source book:
 
-**Step 1 — ANN candidate fetch**: If the book has a `genome_embedding`, cosine distance is run against all other books' genome embeddings via pgvector. If not (fewer than 3 tropes), it falls back to `description_embedding`.
+**Step 1 — ANN candidate fetch**: The genome embedding is used as the primary search vector when available, falling back to description if not. The ANN returns up to `limit × 4` candidates with their cosine distances.
 
 **Step 2 — Sparse feature scoring**: A second similarity score is computed using the actual trope weights and archetype importance values as sparse feature vectors. For each candidate, the dot product of the source book's trope weight vector and the candidate's trope weight vector (normalized) gives a structural similarity score that is exact — not approximate like the ANN. This rewards books that share the same specific tropes at similar intensities, not just books that land nearby in the embedding space.
 
-**Step 3 — Three-stream blend**:
+**Step 3 — Embedding score blend (genome + description)**: When the source book has both a genome and a description embedding, both cosines are blended into the embedding score weighted by trope count:
+```
+genome_weight = min(trope_count / 8, 1.0)
+embedding_score = genome_weight × genome_cosine + (1 − genome_weight) × description_cosine
+```
+A 3-trope book is 37% genome / 63% description; an 8+ trope book is 100% genome. This means sparse books lean on prose similarity more, while fully-tagged books lean on structural similarity more. If description is the primary stream (no genome), the blending step is skipped.
+
+**Step 4 — Three-stream blend**:
 ```
 base_score = 0.5 × embedding_score + 0.5 × sparse_score
 ```
@@ -69,7 +76,7 @@ final_score = 0.80 × base_score + 0.20 × review_cosine
 ```
 This means books that readers *describe similarly* get a small boost on top of structural similarity.
 
-**Step 4** — The source book is excluded from its own results, and the top-N are returned with an explanation listing shared tropes and archetypes.
+**Step 5** — The source book is excluded from its own results, and the top-N (up to 100) are returned with an explanation listing shared tropes and archetypes. BookDetail shows the top 6 with a "See all →" link to `/books/:id/similar` for the full list.
 
 ---
 
@@ -133,4 +140,4 @@ Books without a review embedding are unaffected — their embedding score is use
 
 Up to one third of the final results can come from a collaborative signal: other users with similar taste profiles (measured by genome cosine similarity of their own preference vectors) who have highly rated books the current user hasn't seen. This adds serendipity — books that don't score highest on pure similarity but are consistently loved by readers with similar taste.
 
-The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's history, and whether the source was `"embedding"` or `"collaborative"`.
+The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's history, and whether the source was `"embedding"` or `"collaborative"`. The Home page shows the top 10 with a "See all →" link to `/for-you` which fetches up to 50.

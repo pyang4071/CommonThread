@@ -70,6 +70,8 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 |---|---|---|
 | `/books` | Books | Browse, keyword-search, and filter all books; hybrid search (lexical + semantic RRF); pagination |
 | `/books/:id` | BookDetail | Full book view — metadata, tropes, archetypes, cover, series, reviews, similar books, user actions |
+| `/books/:id/similar` | SimilarBooks | Full paginated grid of up to 100 books similar to a given book |
+| `/for-you` | ForYou | Full paginated grid of up to 50 personalized recommendations |
 | `/tropes` | Tropes | Browse tropes by category, searchable |
 | `/archetypes` | Archetypes | Browse archetypes, searchable |
 | `/shelf` | Shelf | Personal reading shelf sorted by status; sort and title/author filter |
@@ -95,7 +97,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 #### Home (`/`)
 - **Logged out**: large hero with app name, tagline, Browse Books + Browse Tropes buttons
-- **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid
+- **Logged in**: compact one-line greeting with name; currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (10 books) with "See all →" link to `/for-you`
 
 #### Books (`/books`)
 - **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge
@@ -119,7 +121,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Crowd-tagged badge** — teal `crowd-tagged` pill on any trope or archetype in the canonical list where `is_crowd_promoted = true`
 - Series strip (horizontal scroll of other books in series)
 - Reviews list — sortable by Newest / Oldest / Highest / Lowest (select shown when 2+ reviews)
-- Similar Books grid with shared-trope/archetype chips and match % badges; empty state for unembedded books
+- Similar Books grid (6 books) with shared-trope/archetype chips and match % badges; "See all →" link to `/books/:id/similar` for the full list of up to 100; empty state for unembedded books
 - Back-to-top floating button (appears after 300 px scroll)
 - Admin Edit button (admin only)
 
@@ -249,7 +251,7 @@ Base path: `/api/v1`
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/recommendations/for-you` | Required | Personalized recs from user's taste profile. `limit` (default 10). Returns `SimilarBook[]` with `explanation`. |
-| GET | `/recommendations/{book_id}/similar` | — | Books structurally similar to a given book. `limit` (default 5). Returns `SimilarBook[]` with `explanation`. |
+| GET | `/recommendations/{book_id}/similar` | — | Books structurally similar to a given book. `limit` (default 100). Returns `SimilarBook[]` with `explanation`. |
 
 ### Reference Data
 
