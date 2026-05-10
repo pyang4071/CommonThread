@@ -135,6 +135,8 @@ function UserSearchPanel({
 
 // ── Following list ────────────────────────────────────────────────────────────
 
+const FOLLOWING_PAGE_SIZE = 8
+
 function FollowingList({
   users,
   token,
@@ -146,6 +148,9 @@ function FollowingList({
 }) {
   const toast = useToast()
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
+  const [page, setPage] = useState(0)
+
+  useEffect(() => { setPage(0) }, [users.length])
 
   const handleUnfollow = async (u: UserPublicProfile) => {
     if (pendingIds.has(u.user_id)) return
@@ -169,26 +174,50 @@ function FollowingList({
     )
   }
 
+  const totalPages = Math.ceil(users.length / FOLLOWING_PAGE_SIZE)
+  const pageUsers = users.slice(page * FOLLOWING_PAGE_SIZE, (page + 1) * FOLLOWING_PAGE_SIZE)
+
   return (
-    <ul className="divide-y divide-gray-100">
-      {users.map(u => (
-        <li key={u.user_id} className="flex items-center gap-2 py-2.5">
-          <Link to={`/users/${u.user_id}`} className="min-w-0 flex-1 group">
-            <p className="text-sm font-medium text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
-              {u.name ?? u.email}
-            </p>
-            {u.name && <p className="text-xs text-gray-400 truncate">{u.email}</p>}
-          </Link>
+    <div>
+      <ul className="divide-y divide-gray-100">
+        {pageUsers.map(u => (
+          <li key={u.user_id} className="flex items-center gap-2 py-2.5">
+            <Link to={`/users/${u.user_id}`} className="min-w-0 flex-1 group">
+              <p className="text-sm font-medium text-gray-800 truncate group-hover:text-indigo-600 transition-colors">
+                {u.name ?? u.email}
+              </p>
+              {u.name && <p className="text-xs text-gray-400 truncate">{u.email}</p>}
+            </Link>
+            <button
+              onClick={() => handleUnfollow(u)}
+              disabled={pendingIds.has(u.user_id)}
+              className="shrink-0 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+            >
+              {pendingIds.has(u.user_id) ? '…' : 'Unfollow'}
+            </button>
+          </li>
+        ))}
+      </ul>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
           <button
-            onClick={() => handleUnfollow(u)}
-            disabled={pendingIds.has(u.user_id)}
-            className="shrink-0 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {pendingIds.has(u.user_id) ? '…' : 'Unfollow'}
+            ← Prev
           </button>
-        </li>
-      ))}
-    </ul>
+          <span className="text-xs text-gray-400">{page + 1} / {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page === totalPages - 1}
+            className="px-3 py-1 text-xs text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
