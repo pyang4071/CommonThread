@@ -149,7 +149,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 #### Friends (`/friends`)
 - User search by name/email (debounced 300 ms, results dropdown)
 - Follow / Unfollow from search results
-- **Following list**: paginated at 8 per page with Prev / Next and a "page X / Y" counter; pagination only appears when following more than 8 users; resets to page 1 on follow/unfollow
+- **Following list**: paginated at 10 per page (matching the activity feed) with Prev / Next and a "page X / Y" counter; pagination only appears when following more than 10 users; resets to page 1 on follow/unfollow
 - **Activity feed**: paginated at 10 entries per page with Prev / Next controls; fetches 50 entries per API call as a buffer so page turns within the buffer are instant; transparently fetches the next batch when the user reaches the last buffered page; page number shown in the Activity header
 - Feed events: read, currently reading, wants to read, rated, reviewed — with relative timestamps (Today / Yesterday / N days ago)
 - Feed auto-refreshes (resets to page 1) immediately after follow or unfollow
@@ -159,7 +159,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - Breadcrumb: `Friends › Display Name`
 - Follow / Unfollow toggle; following the user immediately reloads their shelf
 - Two-column layout (desktop): shelf sections on the left (2/3 width), Recent Activity sidebar on the right (1/3 width)
-- **Shelf**: same horizontal card format as Shelf page (inset cover, title, author, pub year, avg rating); read-only (no status button); per-section pagination — 6 books initially, "Show N more" to reveal 6 more at a time
+- **Shelf**: same horizontal card format as Shelf page (inset cover, title, author, pub year, avg rating); read-only (no status button); per-section pagination — 4 books initially, "Show N more" to reveal 4 more at a time
 - **Recent Activity sidebar**: shows the user's own shelf and rating events (same event types as the global feed); paginated 5 per page with Prev / Next; fetches 50 entries per batch; page counter shows "X / Y+" when more exist
 - Shows 403-style message if profile is private and caller is not following
 
