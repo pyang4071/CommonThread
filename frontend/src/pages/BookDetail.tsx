@@ -70,6 +70,7 @@ export function BookDetail() {
   const [dislikeConfirmOpen, setDislikeConfirmOpen] = useState(false)
   const [reviews, setReviews] = useState<Review[]>([])
   const [reviewSort, setReviewSort] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest')
+  const [reviewPage, setReviewPage] = useState(0)
   const [seriesBooks, setSeriesBooks] = useState<Book[]>([])
   const [myTags, setMyTags] = useState<UserTags>({ tropes: [], archetypes: [] })
   const [allTropes, setAllTropes] = useState<Trope[]>([])
@@ -311,12 +312,15 @@ export function BookDetail() {
   const sortedTropes = [...book.book_tropes].sort((a, b) => b.weight - a.weight)
   const sortedDNA = [...book.character_dna].sort((a, b) => b.importance - a.importance)
 
+  const REVIEW_PAGE_SIZE = 5
   const sortedReviews = [...reviews].sort((a, b) => {
     if (reviewSort === 'newest') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     if (reviewSort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     if (reviewSort === 'highest') return b.rating - a.rating
     return a.rating - b.rating
   })
+  const reviewTotalPages = Math.ceil(sortedReviews.length / REVIEW_PAGE_SIZE)
+  const pagedReviews = sortedReviews.slice(reviewPage * REVIEW_PAGE_SIZE, (reviewPage + 1) * REVIEW_PAGE_SIZE)
 
   return (
     <div className="space-y-8">
@@ -737,7 +741,7 @@ export function BookDetail() {
             {reviews.length >= 2 && (
               <select
                 value={reviewSort}
-                onChange={e => setReviewSort(e.target.value as typeof reviewSort)}
+                onChange={e => { setReviewSort(e.target.value as typeof reviewSort); setReviewPage(0) }}
                 className="ml-auto text-xs border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white text-gray-600"
               >
                 <option value="newest">Newest first</option>
@@ -748,7 +752,7 @@ export function BookDetail() {
             )}
           </div>
           <div className="space-y-4">
-            {sortedReviews.map(r => (
+            {pagedReviews.map(r => (
               <div key={r.rating_id} className="bg-white border border-gray-200 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex gap-0.5">
@@ -765,6 +769,25 @@ export function BookDetail() {
               </div>
             ))}
           </div>
+          {reviewTotalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => setReviewPage(p => Math.max(0, p - 1))}
+                disabled={reviewPage === 0}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ← Previous
+              </button>
+              <span className="text-xs text-gray-400">{reviewPage + 1} / {reviewTotalPages}</span>
+              <button
+                onClick={() => setReviewPage(p => Math.min(reviewTotalPages - 1, p + 1))}
+                disabled={reviewPage === reviewTotalPages - 1}
+                className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
