@@ -43,7 +43,7 @@ async def for_you(
 @router.get("/{book_id}/similar", response_model=list[SimilarBook])
 async def similar_books(
     book_id: int,
-    limit: int = 5,
+    limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
     book = await crud.book.get_book(db, book_id)

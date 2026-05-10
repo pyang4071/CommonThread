@@ -678,7 +678,7 @@ async def get_recommendations_for_user(
 
 
 async def get_similar_books(
-    db: AsyncSession, book_id: int, limit: int = 5
+    db: AsyncSession, book_id: int, limit: int = 100
 ) -> list[tuple[Book, float, Explanation]]:
     from app.services.similarity import sparse_similarity_scores
 
