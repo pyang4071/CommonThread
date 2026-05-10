@@ -22,6 +22,7 @@ import { Profile } from './pages/Profile'
 import { Shelf } from './pages/Shelf'
 import { TropeDetail } from './pages/TropeDetail'
 import { SimilarBooks } from './pages/SimilarBooks'
+import { ForYou } from './pages/ForYou'
 import { NotFound } from './pages/NotFound'
 import { Unauthorized } from './pages/Unauthorized'
 import { Login } from './pages/auth/Login'
@@ -209,6 +210,7 @@ const router = createBrowserRouter([
       { path: '/books/:id',     element: <AppLayout><ProtectedRoute><BookDetail /></ProtectedRoute></AppLayout> },
       { path: '/books/:id/edit',   element: <AppLayout><ProtectedRoute adminOnly><EditBook /></ProtectedRoute></AppLayout> },
       { path: '/books/:id/similar', element: <AppLayout><ProtectedRoute><SimilarBooks /></ProtectedRoute></AppLayout> },
+      { path: '/for-you',           element: <AppLayout><ProtectedRoute><ForYou /></ProtectedRoute></AppLayout> },
       { path: '/tropes',        element: <AppLayout><ProtectedRoute><Tropes /></ProtectedRoute></AppLayout> },
       { path: '/tropes/:id',    element: <AppLayout><TropeDetail /></AppLayout> },
       { path: '/archetypes',    element: <AppLayout><ProtectedRoute><Archetypes /></ProtectedRoute></AppLayout> },

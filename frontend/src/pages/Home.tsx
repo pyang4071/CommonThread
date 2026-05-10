@@ -245,7 +245,12 @@ export function Home() {
 
           {/* For You */}
           <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-1">For You</h2>
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="text-xl font-semibold text-gray-800">For You</h2>
+              {recs.length > 0 && (
+                <Link to="/for-you" className="text-sm text-indigo-600 hover:underline">See all →</Link>
+              )}
+            </div>
             <p className="text-sm text-gray-500 mb-4">
               Matched by tropes &amp; archetypes from your ratings and shelf
             </p>
