@@ -7,24 +7,18 @@ import { useToast } from '../contexts/ToastContext'
 
 const WEIGHT_TIERS = [
   { value: 1.0,  label: '1.0 — Structural', description: 'The story is a deconstruction of this trope' },
-  { value: 0.85, label: '0.85 — Dominant',   description: 'A primary plot engine, present throughout' },
-  { value: 0.65, label: '0.65 — Major',       description: 'Significant subplot or recurring theme' },
-  { value: 0.45, label: '0.45 — Supporting',  description: 'Present and meaningful but not central' },
-  { value: 0.25, label: '0.25 — Minor',       description: 'A brief arc or secondary character trait' },
-  { value: 0.10, label: '0.10 — Flavor',      description: 'A single scene or blink-and-miss-it nod' },
+  { value: 0.85, label: '0.85 — Dominant',  description: 'A primary plot engine, present throughout' },
+  { value: 0.65, label: '0.65 — Major',     description: 'Significant subplot or recurring theme' },
+  { value: 0.45, label: '0.45 — Supporting',description: 'Present and meaningful but not central' },
+  { value: 0.10, label: '0.10 — Flavor',    description: 'A single scene or blink-and-miss-it nod' },
 ]
 
 const IMPORTANCE_TIERS = [
-  { value: 10, label: '10 — Central',     description: 'Defines the character entirely' },
-  { value: 9,  label: '9 — Dominant',     description: 'The primary lens for the character' },
-  { value: 8,  label: '8 — Strong',       description: 'A major, consistent character trait' },
-  { value: 7,  label: '7 — Significant',  description: 'Clearly present throughout the story' },
-  { value: 6,  label: '6 — Moderate',     description: 'Present and meaningful' },
-  { value: 5,  label: '5 — Notable',      description: 'Noticeable but not defining' },
-  { value: 4,  label: '4 — Supporting',   description: 'A secondary character quality' },
-  { value: 3,  label: '3 — Minor',        description: 'Occasionally surfaces' },
-  { value: 2,  label: '2 — Subtle',       description: 'Barely perceptible' },
-  { value: 1,  label: '1 — Background',   description: 'A fleeting hint only' },
+  { value: 10, label: '10 — Central',    description: 'Defines the character entirely (9–10)' },
+  { value: 8,  label: '8 — Major',       description: 'A major, consistent character trait (7–8)' },
+  { value: 6,  label: '6 — Secondary',   description: 'Present and meaningful (5–6)' },
+  { value: 4,  label: '4 — Supporting',  description: 'A secondary character quality (3–4)' },
+  { value: 2,  label: '2 — Background',  description: 'A fleeting hint only (1–2)' },
 ]
 
 const MAX_TROPES = 12
