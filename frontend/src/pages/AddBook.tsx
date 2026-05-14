@@ -192,6 +192,8 @@ export function AddBook() {
   const hasDominantTrope = selectedTropes.some(s => s.weight >= MIN_DOMINANT_WEIGHT)
 
   const validate = (): string | null => {
+    if (pubDate && pubDate > new Date().toISOString().slice(0, 10))
+      return 'Publication date cannot be in the future.'
     if (selectedTropes.length > 0 && !hasDominantTrope)
       return 'At least one trope must be rated Major (0.65) or above.'
     return null
@@ -307,6 +309,7 @@ export function AddBook() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Publication Date</label>
               <input required type="date" value={pubDate} onChange={e => setPubDate(e.target.value)}
+                max={new Date().toISOString().slice(0, 10)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
