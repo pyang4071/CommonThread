@@ -43,7 +43,7 @@ rrf(rank, k=60) = 1 / (60 + rank)
 score = alpha × rrf(lex_rank) + (1 − alpha) × rrf(sem_rank)
 ```
 
-The `k=60` constant softens rank-1 dominance — the difference between rank 1 and rank 2 matters less than the difference between rank 61 and rank 62. The alpha slider in the UI (default 0.5) controls the blend: higher alpha weights lexical more, lower weights semantic more. Books that appear in both legs get an agreement bonus; books in only one leg still appear if their score clears a `min_score = 0.003` floor.
+The `k=60` constant softens rank-1 dominance — the difference between rank 1 and rank 2 matters less than the difference between rank 61 and rank 62. The alpha slider in the UI (default 0.7) controls the blend: higher alpha weights lexical more, lower weights semantic more. Books that appear in both legs get an agreement bonus; books in only one leg still appear if their score clears a `min_score = 0.003` floor.
 
 The result includes a `match_type` field — `"both"`, `"lexical"`, or `"semantic"` — and books matched semantically get a "matched by vibe" badge in the UI.
 
