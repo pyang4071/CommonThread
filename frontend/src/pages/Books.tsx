@@ -370,7 +370,7 @@ export function Books() {
       <div className="flex gap-2">
         <input
           type="text"
-          placeholder="Search by title, author, or describe a vibe…"
+          placeholder="Search by title, author, or describe a concept…"
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -401,7 +401,7 @@ export function Books() {
       {/* ── Alpha slider (inline, only when query is active) ── */}
       {searchInput.trim() && (
         <div className="flex items-center gap-3 px-1">
-          <span className="text-xs text-gray-400 whitespace-nowrap">More vibe</span>
+          <span className="text-xs text-gray-400 whitespace-nowrap">More semantic</span>
           <input
             type="range" min={0} max={1} step={0.05} value={alpha}
             onChange={e => {
@@ -663,7 +663,7 @@ export function Books() {
                         <p className="text-xs text-gray-400 mt-0.5">{new Date(book.publication_date).getFullYear()}</p>
                       )}
                       {match_type === 'semantic' && (
-                        <span className="mt-1 inline-block text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">matched by vibe</span>
+                        <span className="mt-1 inline-block text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">semantic match</span>
                       )}
                       {book.avg_rating != null ? (
                         <span className="mt-1 flex items-center gap-1 text-xs font-medium text-amber-600">

@@ -199,7 +199,7 @@ export function Admin() {
         </div>
         <div>
           <p className="text-sm text-gray-500 mt-0.5">
-            Each book needs to be embedded before it appears in vibe search and
+            Each book needs to be embedded before it appears in semantic search and
             similarity recommendations. Books are embedded automatically when
             added or edited; use the button below to re-queue any that are
             pending or failed.
@@ -248,7 +248,7 @@ export function Admin() {
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
         <h2 className="text-base font-semibold text-gray-800">Vector Coverage</h2>
         <p className="text-sm text-gray-500">
-          Books with both embeddings appear in vibe search and similarity recommendations.
+          Books with both embeddings appear in semantic search and similarity recommendations.
           Description-only books appear in hybrid search. Books with neither are not searchable by vector.
         </p>
         {coverageLoading ? (

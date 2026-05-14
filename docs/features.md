@@ -101,7 +101,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Logged in**: compact one-line greeting using the user's current display name (from `profile.name`, reflects updates made in Profile); currently-reading shelf (horizontal scroll); want-to-read count with link to `/shelf`; friends activity feed strip (5 most recent events); For You recommendation grid (8 books) with "See all →" link to `/for-you`
 
 #### Books (`/books`)
-- **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched by semantic similarity get a "matched by vibe" badge; **changing any filter or the alpha slider while a search is active immediately re-runs the search**
+- **Hybrid search**: single search bar using lexical full-text + semantic description via RRF; alpha slider controls the blend (higher = more lexical, lower = more semantic); 4 example-query chips; books matched exclusively by semantic similarity get a "semantic match" badge; **changing any filter or the alpha slider while a search is active immediately re-runs the search**
 - **Filter panel**: genres (multi-select chips), book types, tones, pacing (1–5), page count range (min/max number inputs with clear button), trope categories (chip picker), archetypes (chip picker), exclude genres/types/tones/tropes/archetypes, shelf status filter
 - Active filter summary bar ("N books · X filters active")
 - Keyboard navigation on all typeahead pickers (↑↓ Enter Escape)
@@ -521,7 +521,7 @@ SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 |---|---|---|---|
 | `1-home.spec.ts` | public | 4 | Home page loads, hero visible, 404 for unknown routes, login redirect |
 | `2-auth.spec.ts` | public | 3 | Login page renders, invalid creds error, forgot-password form |
-| `3-books.spec.ts` | user | 6 | Browse books, keyword search, filter panel, pagination, vibe search |
+| `3-books.spec.ts` | user | 6 | Browse books, keyword search, filter panel, pagination, semantic search |
 | `4-book-detail.spec.ts` | user | 5 | Book detail page, tropes section, reading status, rating modal |
 | `5-tropes-archetypes.spec.ts` | user | 4 | Tropes browse, Archetypes browse, TropeDetail, ArchetypeDetail |
 | `6-shelf.spec.ts` | user | 3 | Shelf loads, reading status change, filter by status |
