@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.archetype import ArchetypeRead
 from app.schemas.author import AuthorRead
@@ -28,6 +28,12 @@ class CharacterDNARead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+def _validate_pub_date(v: date | None) -> date | None:
+    if v is not None and v > date.today():
+        raise ValueError("publication_date cannot be in the future")
+    return v
+
+
 class BookBase(BaseModel):
     title: str
     isbn: str | None = None
@@ -36,6 +42,11 @@ class BookBase(BaseModel):
     pacing: int | None = None
     series_position: int | None = None
     page_count: int | None = None
+
+    @field_validator("publication_date")
+    @classmethod
+    def pub_date_not_future(cls, v: date | None) -> date | None:
+        return _validate_pub_date(v)
 
 
 class BookCreate(BookBase):
@@ -52,6 +63,11 @@ class BookUpdate(BaseModel):
     pacing: int | None = None
     series_name: str | None = None  # resolved to series_id via get_or_create
     series_position: int | None = None
+
+    @field_validator("publication_date")
+    @classmethod
+    def pub_date_not_future(cls, v: date | None) -> date | None:
+        return _validate_pub_date(v)
 
 
 class BookRead(BookBase):
