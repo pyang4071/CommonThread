@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { api } from '../../api/client'
 
@@ -9,7 +9,7 @@ export function SignUp() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const navigate = useNavigate()
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,39 +27,14 @@ export function SignUp() {
       password,
       options: {
         data: { name: username },
-        emailRedirectTo: `${window.location.origin}/`,
       },
     })
     setLoading(false)
     if (error) {
       setError(error.message)
     } else {
-      setSent(true)
+      navigate('/')
     }
-  }
-
-  if (sent) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm">
-            <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Check your email</h2>
-            <p className="text-sm text-gray-500">
-              We sent a verification link to <span className="font-medium text-gray-700">{email}</span>.
-              Click the link to activate your account.
-            </p>
-            <Link to="/auth/login" className="mt-6 inline-block text-sm text-indigo-600 hover:underline">
-              Back to sign in
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
