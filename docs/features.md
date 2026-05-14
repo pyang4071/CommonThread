@@ -24,7 +24,7 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 
 ### Flow
 1. **Sign-up**: frontend calls `GET /users/check-email` first — returns 409 if the email already exists in `app_users`; aborts with an error message before calling Supabase so no confirmation email is sent to an existing address
-2. User signs up or logs in via **Supabase Auth** (email + password)
+2. User signs up or logs in via **Supabase Auth** (email + password). Email confirmation is **disabled** — users are signed in immediately on signup and redirected to home
 3. Supabase issues a signed JWT
 4. Frontend (`AuthContext.tsx`) stores the session and attaches the JWT as `Authorization: Bearer <token>` on every API call
 5. FastAPI validates the JWT against the Supabase secret in `get_current_user()` / `get_optional_user()`
@@ -172,11 +172,12 @@ Complete inventory of all functionality in the frontend and backend as of 2026-0
 - **Embedding Models panel** — shows genome / description / review model loading status (ready/loading) fetched from `GET /health` on page load
 
 #### AddBook / EditBook
-- Metadata: title (required), author (autocomplete from existing authors), ISBN (required), publication date (required), description (optional), series name + position (optional)
+- Metadata: title (required), author (autocomplete from existing authors), ISBN (required), publication date (required, must not be in the future), description (optional), series name + position (optional)
 - Pacing picker (1 Very Slow → 5 Very Fast)
 - Genre / book type / tone chip toggles
-- Trope typeahead with weight tier select (Flavor 0.10 → Structural 1.0); max 12 tropes; **optional at creation** — recommendations unlock at 3 tropes; if any tropes are added at least one must be Major (≥ 0.65)
-- Archetype typeahead with importance tier select (Background 1 → Central 10); max 8 archetypes; optional
+- Trope typeahead with weight tier select (5 tiers: Flavor 0.10, Supporting 0.45, Major 0.65, Dominant 0.85, Structural 1.0); max 12 tropes; **optional at creation** — recommendations unlock at 3 tropes; if any tropes are added at least one must be Major (≥ 0.65)
+- Archetype typeahead with importance tier select (5 tiers: Background 2, Supporting 4, Secondary 6, Major 8, Central 10); max 8 archetypes; optional
+- **Duplicate detection**: while typing title + author, AddBook debounces a search and shows an amber warning if a book with the same title and author already exists, with a link to the existing entry
 - AddBook counter turns amber at 1–2 tropes (threshold not yet met) and green at ≥ 3
 - EditBook diffs original vs new state and only sends changed associations
 - Toast on success (`Book added.` / `Changes saved.`)
@@ -250,7 +251,7 @@ Base path: `/api/v1`
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/search/hybrid` | Optional | Hybrid search combining PostgreSQL full-text (lexical) and BGE-base description cosine similarity via Reciprocal Rank Fusion. Body: `{q, top_n, alpha (0–1, default 0.5 — higher = more lexical), min_score, genre_ids[], book_type_ids[], tone_ids[], pacing, categories[], exclude_*[]}`. Returns `HybridResult[]` with `{book, score, match_type: "both"\|"lexical"\|"semantic", lex_rank, sem_rank}`. Works for all books including those without genome embeddings. |
+| POST | `/search/hybrid` | Optional | Hybrid search combining PostgreSQL full-text (lexical) and BGE-base description cosine similarity via Reciprocal Rank Fusion. Body: `{q, top_n, alpha (0–1, default 0.7 — higher = more lexical), min_score, genre_ids[], book_type_ids[], tone_ids[], pacing, categories[], exclude_*[]}`. Returns `HybridResult[]` with `{book, score, match_type: "both"\|"lexical"\|"semantic", lex_rank, sem_rank}`. Works for all books including those without genome embeddings. |
 
 ### Recommendations — `/recommendations`
 
@@ -346,7 +347,7 @@ rrf(rank, k=60) = 1 / (k + rank)
 score = alpha × rrf(lex_rank) + (1 − alpha) × rrf(sem_rank)
 ```
 
-- `alpha = 0.5` by default (equal lexical/semantic weight)
+- `alpha = 0.7` by default (70% lexical / 30% semantic)
 - Lexical leg uses PostgreSQL `search_vector @@ plainto_tsquery(q)` on the `tsvector` GENERATED column
 - Semantic leg uses BGE-base description cosine similarity
 - Books present in only one leg still appear if their score clears `min_score = 0.003`
