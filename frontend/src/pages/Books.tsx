@@ -189,7 +189,7 @@ export function Books() {
 
   // ── search ──
   const [searchInput, setSearchInput] = useSessionState('books:searchInput', '')
-  const [alpha, setAlpha] = useSessionState('books:alpha', 0.5)
+  const [alpha, setAlpha] = useSessionState('books:alpha', 0.7)
   const [hybridResults, setHybridResults] = useSessionState<HybridResult[] | null>('books:hybridResults', null)
   const [hybridLoading, setHybridLoading] = useState(false)
   const [hybridError, setHybridError] = useState<string | null>(null)
