@@ -175,11 +175,7 @@ async def create_book(data: BookCreate, db: AsyncSession = Depends(get_db)):
     Cover fetching still runs immediately in the background.
     """
     book = await crud.book.create_book(db, data)
-    cover_url = await fetch_cover_url(book.isbn, book.title, book.author.name)
-    if cover_url:
-        book.cover_url = cover_url
-        await db.commit()
-        await db.refresh(book)
+    asyncio.create_task(_fetch_cover_in_background(book.book_id, book.isbn, book.title, book.author.name))
     asyncio.create_task(_embed_description_in_background(book.book_id))
     return book
 

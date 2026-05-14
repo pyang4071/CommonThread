@@ -91,6 +91,7 @@ export function AddBook() {
   const [submitted, setSubmitted] = useState(false)
   const [navigateTo, setNavigateTo] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [duplicates, setDuplicates] = useState<import('../api/client').Book[]>([])
 
   const isDirty = !submitted && (
     title.trim() !== '' || author.trim() !== '' || isbn.trim() !== '' ||
@@ -119,6 +120,22 @@ export function AddBook() {
     api.bookTypes.list().then(setAllBookTypes)
     api.tones.list().then(setAllTones)
   }, [])
+
+  // Duplicate detection: debounce title+author search
+  useEffect(() => {
+    if (title.trim().length < 3 || author.trim().length < 2) { setDuplicates([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const results = await api.books.list({ search: title.trim(), limit: 5 })
+        const matches = results.filter(b =>
+          b.title.toLowerCase() === title.trim().toLowerCase() &&
+          b.author.name.toLowerCase().includes(author.trim().toLowerCase())
+        )
+        setDuplicates(matches)
+      } catch { setDuplicates([]) }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [title, author])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -284,6 +301,22 @@ export function AddBook() {
               </ul>
             )}
           </div>
+
+          {duplicates.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-sm text-amber-800">
+              <span className="font-medium">Possible duplicate{duplicates.length > 1 ? 's' : ''} already in the database:</span>
+              <ul className="mt-1 space-y-0.5">
+                {duplicates.map(b => (
+                  <li key={b.book_id}>
+                    <a href={`/books/${b.book_id}`} target="_blank" rel="noreferrer"
+                      className="underline hover:text-amber-900">
+                      {b.title} by {b.author.name}{b.publication_date ? ` (${b.publication_date.slice(0, 4)})` : ''}{b.isbn ? ` — ISBN ${b.isbn}` : ''}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
