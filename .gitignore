@@ -18,6 +18,10 @@
 .env.*.local
 *.env
 
+# .mcp.json contains a real Supabase project_ref — never commit it.
+# .mcp.json.example is the safe template and SHOULD be committed.
+**/.mcp.json
+
 # Key material
 *.pem
 *.key
