@@ -519,21 +519,21 @@ SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
 
 | File | Project | Tests | What it covers |
 |---|---|---|---|
-| `1-home.spec.ts` | public | 4 | Home page loads, hero visible, 404 for unknown routes, login redirect |
-| `2-auth.spec.ts` | public | 3 | Login page renders, invalid creds error, forgot-password form |
-| `3-books.spec.ts` | user | 6 | Browse books, keyword search, filter panel, pagination, semantic search |
-| `4-book-detail.spec.ts` | user | 5 | Book detail page, tropes section, reading status, rating modal |
-| `5-tropes-archetypes.spec.ts` | user | 4 | Tropes browse, Archetypes browse, TropeDetail, ArchetypeDetail |
-| `6-shelf.spec.ts` | user | 3 | Shelf loads, reading status change, filter by status |
-| `7-my-tags.spec.ts` | user | 2 | MyTags page load, filter input |
-| `8-friends.spec.ts` | user | 3 | Friends page, user search, activity feed |
-| `9-profile.spec.ts` | user | 3 | Profile page, edit name, privacy toggle |
+| `1-home.spec.ts` | public | 10 | Home page loads, hero visible, 404 for unknown routes, login redirect |
+| `2-auth.spec.ts` | public | 6 | Login page renders, invalid creds error, forgot-password form |
+| `3-books.spec.ts` | user | 15 | Browse books, keyword search, semantic search, filter panel, pagination, admin delete guard |
+| `4-book-detail.spec.ts` | user | 16 | Book detail page, tropes/archetypes sections, similar books, reading status, rating modal, tagging threshold badge |
+| `5-tropes-archetypes.spec.ts` | user | 11 | Tropes browse, Archetypes browse, TropeDetail, ArchetypeDetail |
+| `6-shelf.spec.ts` | user | 6 | Shelf loads, reading status change, filter by status |
+| `7-my-tags.spec.ts` | user | 4 | MyTags page load, filter input |
+| `8-friends.spec.ts` | user | 4 | Friends page, user search, activity feed |
+| `9-profile.spec.ts` | user | 5 | Profile page, edit name, privacy toggle |
 | `10-admin.spec.ts` | admin | 13 | Genres/BookTypes/Tones CRUD, Admin dashboard embed controls, route protection |
 | `11-tagging-threshold.spec.ts` | admin | 11 | AddBook optional-trope UI, threshold progress badge, BookDetail badge lifecycle, embed-all skips below-threshold |
+| `12-phase5-admin.spec.ts` | admin | 20 | Vector coverage stats, embedding model health panel, trope/archetype delete-confirm modals, crowd-tagged badge |
+| `12-phase5-user.spec.ts` | user | 14 | Page-count/language filters, book detail structure |
 
-**Total: 57 tests (1 skip — intentional when admin creds are present)**
-
-All 57 tests pass with valid credentials in `e2e/.env`. The `public` project (14 tests) needs no credentials.
+**Total: 135 tests** (some skip conditionally when optional credentials like `ADMIN_EMAIL` aren't set, or when a fixture book lacks optional data).
 
 ### Running Tests
 
@@ -637,13 +637,13 @@ uv run python scripts/import_tagged_books.py --no-embed
 
 The script is **idempotent** — re-running it on already-imported books is safe. Unknown taxonomy names generate a warning but do not abort the import.
 
-### Current data state (2026-04-18)
+### Current data state (2026-08-23, verified against DB)
 
 | Metric | Count |
 |---|---|
-| Books in database | ~5,772 |
-| Tagged with tropes/archetypes | 648 |
-| Scraped JSONL files (not yet tagged) | 9,220 remaining |
+| Books in database | ~5,777 |
+| Tagged with tropes/archetypes | 887 |
+| Scraped JSONL files (not yet tagged) | 8,531 remaining |
 
 Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.json`. See `backend/parse_books.md` for the full tagging workflow and resumption instructions.
 

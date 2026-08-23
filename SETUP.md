@@ -100,9 +100,9 @@ cd e2e
 npm install
 cp .env.example .env   # fill in TEST_EMAIL, ADMIN_EMAIL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
-npm test                              # all 57 tests
-npx playwright test --project=public  # 14 public tests — no credentials needed
+npm test                              # all 135 tests
+npx playwright test --project=public  # 16 public tests — no credentials needed
 npx playwright test --ui              # interactive UI mode
 ```
 
-See [FEATURES.md — End-to-End Testing](FEATURES.md#end-to-end-testing) for full test coverage details.
+See [docs/features.md — End-to-End Testing](docs/features.md#end-to-end-testing) for full test coverage details.

@@ -1,5 +1,5 @@
 /**
- * Books page — browse, search, vibe search, filter, pagination.
+ * Books page — browse, search, semantic search, filter, pagination.
  * Requires user auth (storageState: .auth/user.json).
  * If .auth/user.json has no session, all tests will redirect to /auth/login and fail —
  * set TEST_EMAIL / TEST_PASSWORD in e2e/.env first.
@@ -28,8 +28,8 @@ test.describe('Books page — layout', () => {
     await expect(page.getByText(/Page \d/)).toBeVisible()
   })
 
-  test('shows Vibe Search button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /Vibe/i })).toBeVisible()
+  test('search input invites a descriptive/semantic query', async ({ page }) => {
+    await expect(page.locator('input[placeholder*="describe" i]')).toBeVisible()
   })
 
   test('shows Filters button', async ({ page }) => {
@@ -66,27 +66,26 @@ test.describe('Books page — keyword search', () => {
   })
 })
 
-test.describe('Books page — vibe search', () => {
-  test('opening vibe search panel shows query input', async ({ page }) => {
-    await page.getByRole('button', { name: /Vibe/i }).click()
-    await expect(page.locator('input[placeholder*="vibe" i], input[placeholder*="query" i], textarea').first()).toBeVisible()
-  })
-
-  test('example query chips populate the vibe input on click', async ({ page }) => {
-    await page.getByRole('button', { name: /Vibe/i }).click()
-    // Example chips are small buttons in the vibe panel
-    const chip = page.locator('[class*="chip"], button').filter({ hasText: /slow.burn|found family|dark academia|cozy/i }).first()
-    if (await chip.count() > 0) {
-      await chip.click()
-      const input = page.locator('input[placeholder*="vibe" i], input, textarea').first()
-      const val = await input.inputValue()
-      expect(val.length).toBeGreaterThan(0)
-    }
-  })
-
-  test('alpha slider is present in vibe panel', async ({ page }) => {
-    await page.getByRole('button', { name: /Vibe/i }).click()
+test.describe('Books page — semantic search', () => {
+  test('typing a query reveals the keyword/semantic alpha slider', async ({ page }) => {
+    const input = page.locator('input[placeholder*="title" i], input[placeholder*="search" i]').first()
+    await input.fill('cozy mystery with slow-burn romance')
     await expect(page.locator('input[type="range"]')).toBeVisible()
+  })
+
+  test('alpha slider is labeled from keyword to semantic weighting', async ({ page }) => {
+    const input = page.locator('input[placeholder*="title" i], input[placeholder*="search" i]').first()
+    await input.fill('found family in a dark academia setting')
+    await expect(page.getByText('More semantic')).toBeVisible()
+    await expect(page.getByText('More keyword')).toBeVisible()
+  })
+
+  test('clearing the query hides the alpha slider', async ({ page }) => {
+    const input = page.locator('input[placeholder*="title" i], input[placeholder*="search" i]').first()
+    await input.fill('slow-burn enemies to lovers')
+    await expect(page.locator('input[type="range"]')).toBeVisible()
+    await input.fill('')
+    await expect(page.locator('input[type="range"]')).toBeHidden()
   })
 })
 

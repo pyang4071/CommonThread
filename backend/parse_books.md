@@ -1,16 +1,19 @@
 # Parse Books
 
-## Current Status — 2026-04-18
+## Current Status — 2026-08-23
 
 | Metric | Count |
 |---|---|
 | Total scraped books (JSONL files) | 10,020 |
-| Tagged and **imported into DB** | 648 |
-| Skipped (unknown / no data) | 152 |
-| **Remaining to process** | **9,220** |
+| Tagged (`tagging_progress.json` checkpoint, 2026-04-20) | 1,262 |
+| Skipped (unknown / no data) | 227 |
+| **Remaining to process** | **8,531** |
+| **Live in DB, fully tagged** (verified against DB, 2026-08-23) | **887** |
 
-The 648 tagged books are live in the database with tropes, archetypes, genres, tones,
-book types, pacing, and genome+description embeddings applied.
+887 books are live in the database with tropes, archetypes, genres, tones,
+book types, pacing, and genome+description embeddings applied. That's fewer than the
+1,262 in the tagging checkpoint above — some tagged books haven't been imported/embedded
+yet, and the [1,240-duplicate cleanup](../docs/error_log.md) removed some along the way.
 
 `tagging_progress.json` holds the checkpoint. On resume, read it and skip any
 `ol_work_key` already in `completed_ol_work_keys` — do **not** re-tag books that
