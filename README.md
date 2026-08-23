@@ -2,6 +2,7 @@
 
 A book recommendation engine that matches readers by narrative DNA — tropes and character archetypes — instead of genre tags or collaborative filtering.
 
+https://github.com/user-attachments/assets/01862cf0-0ea9-49f2-8091-86760ccfa22b
 
 **135 Playwright end-to-end tests** across 13 spec files (public / user / admin projects) cover auth, search, tagging, recommendations, the social layer, and the admin dashboard — see [docs/features.md](docs/features.md#end-to-end-testing).
 
