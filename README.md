@@ -1,8 +1,16 @@
 # CommonThread
 
-A book recommendation engine powered by tropes and character archetypes. CommonThread models books at the level of narrative DNA — tropes and archetypes with weighted importance — and uses a three-stream semantic embedding approach (structural genome, prose description, aggregated reviews) to match readers with books based on story structure rather than genre tags or collaborative filtering.
+A book recommendation engine that matches readers by narrative DNA — tropes and character archetypes — instead of genre tags or collaborative filtering.
 
-Built for ECE 464.
+
+**135 Playwright end-to-end tests** across 13 spec files (public / user / admin projects) cover auth, search, tagging, recommendations, the social layer, and the admin dashboard — see [docs/features.md](docs/features.md#end-to-end-testing).
+
+---
+
+## Stack
+
+**Backend:** Python 3.12 + FastAPI, SQLAlchemy 2.0 (async) + asyncpg, Alembic migrations, pgvector for similarity search, FastEmbed (BAAI/bge) for local embeddings, Supabase for auth + Postgres hosting.
+**Frontend:** React 19 + TypeScript on Vite, React Router v7 (data router), Supabase JS for auth, Tailwind CSS.
 
 ---
 
@@ -18,48 +26,23 @@ Built for ECE 464.
 
 ## Current State
 
-| Area | Status |
-|---|---|
-| Backend API | Feature-complete |
-| Database schema | Stable (26 migrations) |
-| Embedding pipeline | Three-stream BGE (genome 384d, description 768d, review 768d) |
-| Search | Hybrid RRF (lexical + semantic) |
-| Recommendations | Personalized + similar books |
-| Social / friends | Follow system, activity feed, public profiles |
-| User preferences | Content blocklist, privacy toggle |
-| Frontend | Feature-complete |
-| Admin dashboard | Embed pipeline, cover fetching, vector coverage panel |
-| Crowd promotion | User tags promote to canonical at ≥ 3 users |
-| Auth | Supabase JWT |
-| E2E Testing | 57 Playwright tests — 56 pass, 1 skip |
-| Data | 648 tagged books live; ~5,772 total in DB |
+Backend and frontend are feature-complete: hybrid RRF search, a three-stream BGE embedding pipeline (genome 384d, description 768d, review 768d), personalized + similar-book recommendations, a social layer (follows, activity feed, public profiles), crowd-promoted tagging, Supabase-JWT auth, and an admin dashboard for the embedding pipeline, cover fetching, and vector coverage. The schema is stable across 32 migrations; ~887 of ~5,777 books in the DB are fully tagged.
 
 ---
 
-## Tech Stack
+## Docs
 
-### Backend
-| Tool | Role |
-|---|---|
-| Python 3.12 + FastAPI | API framework |
-| SQLAlchemy 2.0 (async) + asyncpg | ORM + Postgres driver |
-| Alembic | DB migrations |
-| pgvector | Vector similarity in Postgres |
-| FastEmbed (BAAI/bge) | Local BGE embedding models |
-| Supabase | Auth (JWT) + Postgres hosting |
-
-### Frontend
-| Tool | Role |
-|---|---|
-| React 19 + TypeScript | UI framework |
-| Vite | Build tool |
-| React Router v7 | Client-side routing (data router) |
-| Supabase JS | Auth client |
-| Tailwind CSS | Styling |
+- [docs/features.md](docs/features.md) — full feature reference, API documentation, and architecture details
+- [docs/schema.md](docs/schema.md) — database schema: every table and column explained
+- [docs/search_and_recommendations.md](docs/search_and_recommendations.md) — how search and recommendations work
+- [SETUP.md](SETUP.md) — local development, environment variables, Docker, and deployment
 
 ---
 
 ## Repository Structure
+
+<details>
+<summary>Expand tree</summary>
 
 ```
 CommonThread/
@@ -71,7 +54,7 @@ CommonThread/
 │   ├── search_and_recommendations.md  ← Search and recommendation system deep-dive
 │   └── error_log.md        ← Dev error log
 ├── e2e/                    ← Playwright end-to-end tests
-│   ├── tests/              # 11 spec files, 57 tests
+│   ├── tests/              # 13 spec files, 135 tests
 │   ├── global-setup.ts     # Magic-link auth setup
 │   └── playwright.config.ts
 ├── backend/
@@ -96,11 +79,8 @@ CommonThread/
         └── pages/          # Route page components
 ```
 
+</details>
+
 ---
 
-## Docs
-
-- [docs/features.md](docs/features.md) — full feature reference, API documentation, and architecture details
-- [docs/schema.md](docs/schema.md) — database schema: every table and column explained
-- [docs/search_and_recommendations.md](docs/search_and_recommendations.md) — how search and recommendations work
-- [SETUP.md](SETUP.md) — local development, environment variables, Docker, Railway + Vercel deployment
+Final project for ECE 464 — Databases.
