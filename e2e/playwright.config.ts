@@ -12,6 +12,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html', { open: 'never' }], ['list']],
   globalSetup: './global-setup.ts',
+  globalTeardown: './global-teardown.ts',
 
   use: {
     baseURL: 'http://localhost:5173',

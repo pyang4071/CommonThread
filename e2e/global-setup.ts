@@ -8,11 +8,15 @@
  *   3. Neither set → writes empty state; auth tests will skip.
  *
  * Same two-step logic applies for ADMIN_EMAIL / ADMIN_PASSWORD.
+ *
+ * The saved .auth/*.json files hold live sessions; global-teardown.ts revokes
+ * and deletes them after the run.
  */
 
 import { chromium } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { revokeAuthFiles } from './global-teardown'
 
 const BASE = 'http://localhost:5173'
 const AUTH_DIR = path.join(__dirname, '.auth')
@@ -135,6 +139,8 @@ async function saveState(
 }
 
 export default async function globalSetup() {
+  // A run killed before global-teardown leaves live sessions behind — end them first.
+  await revokeAuthFiles()
   fs.mkdirSync(AUTH_DIR, { recursive: true })
 
   await saveState(process.env.TEST_EMAIL, process.env.TEST_PASSWORD, 'user.json')
