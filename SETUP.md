@@ -38,6 +38,11 @@ uv run ruff format .                                       # format
 uv run alembic revision --autogenerate -m "description"   # new migration
 uv run alembic upgrade head                                # apply migrations
 uv run alembic downgrade -1                                # roll back one
+# A migration that creates a table must ENABLE ROW LEVEL SECURITY on it and list it
+# in RLS_TABLES (tests/test_rls_coverage.py enforces this).
+
+# Repo root — secret scanning (gitleaks) on every commit; run once per clone
+pre-commit install
 
 # Frontend
 npm run build    # production build — also runs tsc, surfaces type errors
@@ -98,7 +103,8 @@ FastEmbed models (~570 MB) are downloaded on first startup and cached in a named
 ```bash
 cd e2e
 npm install
-cp .env.example .env   # fill in TEST_EMAIL, ADMIN_EMAIL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+cp .env.example .env   # fill in TEST_EMAIL, ADMIN_EMAIL, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+                       # use dedicated test accounts — global-teardown signs their sessions out after each run
 
 npm test                              # all 135 tests
 npx playwright test --project=public  # 16 public tests — no credentials needed
