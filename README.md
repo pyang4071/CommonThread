@@ -1,6 +1,6 @@
 # CommonThread
 
-A book recommendation engine that matches readers by narrative DNA — tropes and character archetypes — instead of genre tags or collaborative filtering.
+A book recommendation engine that matches readers by narrative DNA — tropes and character archetypes — rather than genre tags, with collaborative filtering as a secondary signal.
 
 https://github.com/user-attachments/assets/01862cf0-0ea9-49f2-8091-86760ccfa22b
 
@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/01862cf0-0ea9-49f2-8091-86760ccfa22b
 
 ## What it does
 
-- **"More like this"** similarity based on shared story structure (tropes + archetypes)
+- **"More like this"** similarity led by shared story structure (tropes + archetypes), blended with description embeddings
 - **Personalized recommendations** derived from a user's rating and shelf history
 - **Hybrid search** — understands "cozy mystery with slow-burn romance" as a query; combines full-text keyword matching with semantic description similarity via Reciprocal Rank Fusion
 - **Social layer** — follow other readers, activity feed, public shelves
@@ -27,7 +27,7 @@ https://github.com/user-attachments/assets/01862cf0-0ea9-49f2-8091-86760ccfa22b
 
 ## Current State
 
-Backend and frontend are feature-complete: hybrid RRF search, a three-stream BGE embedding pipeline (genome 384d, description 768d, review 768d), personalized + similar-book recommendations, a social layer (follows, activity feed, public profiles), crowd-promoted tagging, Supabase-JWT auth, and an admin dashboard for the embedding pipeline, cover fetching, and vector coverage. The schema is stable across 32 migrations; ~887 of ~5,777 books in the DB are fully tagged.
+Backend and frontend are feature-complete: hybrid search (Postgres full-text + description-embedding results fused by RRF), a BGE embedding pipeline (genome 384d, description 768d) whose scores are blended by weight for personalized and similar-book recommendations — a third review stream (768d) is wired into scoring but populated for only a handful of books, since Goodreads review scraping did not yield usable data, a social layer (follows, activity feed, public profiles), crowd-promoted tagging, Supabase-JWT auth, and an admin dashboard for the embedding pipeline, cover fetching, and vector coverage. The schema is stable across 32 migrations; ~887 of ~5,777 books in the DB are fully tagged.
 
 ---
 
