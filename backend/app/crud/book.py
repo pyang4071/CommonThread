@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from collections import defaultdict
 from datetime import datetime, UTC
@@ -353,12 +352,18 @@ async def get_recommendations_for_user(
     from app.models.dislike import BookDislike
 
     # ── 1. Build exclude set ──────────────────────────────────────────────────
-    all_rated_q, read_q, disliked_q = await asyncio.gather(
-        db.execute(select(BookRating.book_id).where(BookRating.user_id == user_id)),
-        db.execute(select(ReadingStatus.book_id).where(
+    # Sequential on purpose: a single AsyncSession cannot run concurrent
+    # operations (asyncio.gather here raises InvalidRequestError).
+    all_rated_q = await db.execute(
+        select(BookRating.book_id).where(BookRating.user_id == user_id)
+    )
+    read_q = await db.execute(
+        select(ReadingStatus.book_id).where(
             ReadingStatus.user_id == user_id, ReadingStatus.status == "read"
-        )),
-        db.execute(select(BookDislike.book_id).where(BookDislike.user_id == user_id)),
+        )
+    )
+    disliked_q = await db.execute(
+        select(BookDislike.book_id).where(BookDislike.user_id == user_id)
     )
     rated_ids = set(all_rated_q.scalars().all())
     read_ids = set(read_q.scalars().all())
@@ -390,15 +395,13 @@ async def get_recommendations_for_user(
     from app.crud.user_tags import get_aggregated_taste
     from app.services.embedding import embed_user_taste
 
-    genome_q, review_pref_q = await asyncio.gather(
-        db.execute(
-            select(Book.genome_embedding)
-            .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
-        ),
-        db.execute(
-            select(Book.review_embedding)
-            .where(Book.book_id.in_(high_rated_ids), Book.review_embedding.is_not(None))
-        ),
+    genome_q = await db.execute(
+        select(Book.genome_embedding)
+        .where(Book.book_id.in_(high_rated_ids), Book.genome_embedding.is_not(None))
+    )
+    review_pref_q = await db.execute(
+        select(Book.review_embedding)
+        .where(Book.book_id.in_(high_rated_ids), Book.review_embedding.is_not(None))
     )
     genome_embeddings = [row[0] for row in genome_q.all()]
     _review_pref_vecs = [np.array(row[0]) for row in review_pref_q.all()]

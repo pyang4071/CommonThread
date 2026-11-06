@@ -30,7 +30,7 @@ class TestApplyFiltersPageCount:
         filtered = _apply_filters(
             stmt,
             genre_ids=[], book_type_ids=[], tone_ids=[], pacing=None,
-            categories=[], exclude_trope_ids=[], exclude_archetype_ids=[],
+            categories=[], archetype_ids=[], exclude_trope_ids=[], exclude_archetype_ids=[],
             exclude_genre_ids=[], exclude_book_type_ids=[], exclude_tone_ids=[],
         )
         sql = self._compile(filtered)
@@ -42,7 +42,7 @@ class TestApplyFiltersPageCount:
         filtered = _apply_filters(
             stmt,
             genre_ids=[], book_type_ids=[], tone_ids=[], pacing=None,
-            categories=[], exclude_trope_ids=[], exclude_archetype_ids=[],
+            categories=[], archetype_ids=[], exclude_trope_ids=[], exclude_archetype_ids=[],
             exclude_genre_ids=[], exclude_book_type_ids=[], exclude_tone_ids=[],
             page_count_min=100,
         )
@@ -56,7 +56,7 @@ class TestApplyFiltersPageCount:
         filtered = _apply_filters(
             stmt,
             genre_ids=[], book_type_ids=[], tone_ids=[], pacing=None,
-            categories=[], exclude_trope_ids=[], exclude_archetype_ids=[],
+            categories=[], archetype_ids=[], exclude_trope_ids=[], exclude_archetype_ids=[],
             exclude_genre_ids=[], exclude_book_type_ids=[], exclude_tone_ids=[],
             page_count_max=500,
         )
@@ -70,7 +70,7 @@ class TestApplyFiltersPageCount:
         filtered = _apply_filters(
             stmt,
             genre_ids=[], book_type_ids=[], tone_ids=[], pacing=None,
-            categories=[], exclude_trope_ids=[], exclude_archetype_ids=[],
+            categories=[], archetype_ids=[], exclude_trope_ids=[], exclude_archetype_ids=[],
             exclude_genre_ids=[], exclude_book_type_ids=[], exclude_tone_ids=[],
             page_count_min=200,
             page_count_max=600,
@@ -85,7 +85,7 @@ class TestApplyFiltersPageCount:
         filtered = _apply_filters(
             stmt,
             genre_ids=[], book_type_ids=[], tone_ids=[], pacing=None,
-            categories=[], exclude_trope_ids=[], exclude_archetype_ids=[],
+            categories=[], archetype_ids=[], exclude_trope_ids=[], exclude_archetype_ids=[],
             exclude_genre_ids=[], exclude_book_type_ids=[], exclude_tone_ids=[],
             page_count_min=0,
         )

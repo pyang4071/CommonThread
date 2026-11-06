@@ -415,7 +415,7 @@ export function Books() {
           />
           <span className="text-xs text-gray-400 whitespace-nowrap">More keyword</span>
           <span className="text-xs text-indigo-600 font-medium ml-1">
-            {alpha >= 0.8 ? 'Keyword-heavy' : alpha <= 0.2 ? 'Vibe-heavy' : `${Math.round(alpha * 100)}% keyword`}
+            {alpha >= 0.8 ? 'Keyword-heavy' : alpha <= 0.2 ? 'Semantic-heavy' : `${Math.round(alpha * 100)}% keyword`}
           </span>
         </div>
       )}

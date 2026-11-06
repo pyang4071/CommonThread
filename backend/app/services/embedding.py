@@ -1,28 +1,29 @@
 """
-Two-stream book embedding pipeline.
+Three-stream book embedding pipeline.
 
 Streams
 -------
 genome_embedding (384-dim, bge-small-en-v1.5)
-    Encodes structured labels: tropes (with weight/strength), character archetypes
-    (with importance), genres, title+author.  Description is intentionally excluded
-    so that trope/archetype signal is not diluted by prose.
+    Encodes structured labels rendered as text: title+author, tropes (with
+    weight/strength), character archetypes (with importance), genres, tones,
+    pacing. Description is intentionally excluded so that trope/archetype
+    signal is not diluted by prose. Only built once a book has
+    >= TROPE_THRESHOLD canonical tropes.
 
 description_embedding (768-dim, bge-base-en-v1.5)
-    Encodes the free-text book description only.  Captures narrative vibe and
-    marketing-language semantics that the genome labels may miss.
+    Encodes the free-text book description only. Built for every book that
+    has a description; this is what makes a book searchable.
 
-Query-time
-----------
-Both streams are encoded with a BGE asymmetric instruction prefix so the query
-vector sits in the same retrieval space as the stored document vectors:
-    "Represent this sentence for searching relevant passages: {query}"
+review_embedding (768-dim, bge-base-en-v1.5)
+    Encodes all review texts for a book concatenated together. Used only to
+    re-score recommendation candidates.
 
-Blending
---------
-At search time the caller weights the two cosine scores:
-    score = α * genome_score + (1 - α) * description_score
-If a book has no description, genome score is used alone.
+Where each stream is used
+-------------------------
+- Hybrid search (crud/search.py): description stream only. The raw query is
+  embedded without an instruction prefix.
+- Similar books / For You (crud/book.py): genome stream for ANN retrieval,
+  falling back to description; review stream for re-scoring.
 """
 
 import asyncio
@@ -47,7 +48,6 @@ GENOME_DIM = 384
 DESCRIPTION_MODEL = "BAAI/bge-base-en-v1.5"
 DESCRIPTION_DIM = 768
 
-BGE_QUERY_INSTRUCTION = "Represent this sentence for searching relevant passages: "
 
 
 import os
@@ -192,20 +192,6 @@ async def embed_user_taste(
     return await _run(genome_str, _get_genome_model)
 
 
-async def embed_query(text: str) -> tuple[list[float], list[float]]:
-    """
-    Encode a user search query for both streams.
-    Returns (genome_vec, description_vec).
-    Both use the BGE asymmetric instruction prefix.
-    """
-    instructed = BGE_QUERY_INSTRUCTION + text.strip()
-    genome_vec, desc_vec = await asyncio.gather(
-        _run(instructed, _get_genome_model),
-        _run(instructed, _get_description_model),
-    )
-    return genome_vec, desc_vec
-
-
 async def embed_description_only(book_id: int, db: AsyncSession) -> Book | None:
     """
     Embed only the description stream for a book and mark it done.
@@ -235,7 +221,8 @@ async def embed_reviews_for_book(book_id: int, db: AsyncSession) -> Book | None:
     description_embedding — no additional model download needed).
 
     Writes to books.review_embedding. Returns None if no reviews with text exist.
-    Re-called on every review upsert so the aggregate stays current.
+    Called from the ratings router after a review upsert, but only on the first
+    review and then once every REVIEW_EMBED_BATCH_SIZE new reviews.
     """
     from app.models.book_rating import BookRating
 
@@ -273,7 +260,7 @@ async def embed_book(book_id: int, db: AsyncSession, genome_threshold: int = 3) 
     Genome is only embedded when the book has >= genome_threshold tropes — a sparse
     genome (title+author only) adds noise rather than signal to similarity search.
     embedding_status is set to 'done' regardless so the book is searchable via
-    description even when it doesn't yet qualify for genome/vibe search.
+    description even when it doesn't yet qualify for genome-based similarity.
     """
     book = await get_book_detail(db, book_id)
     if book is None:

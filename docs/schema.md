@@ -215,7 +215,7 @@ Tracks where a user is in their reading journey with a book. Only one status per
 |---|---|---|
 | `user_id` | UUID PK, FK → `app_users` | CASCADE delete — status removed when user is deleted. |
 | `book_id` | INT PK, FK → `books` | CASCADE delete. |
-| `status` | VARCHAR | `want_to_read` \| `currently_reading` \| `read`. Enforced by the frontend and API; no DB check constraint. |
+| `status` | VARCHAR | `want_to_read` \| `currently_reading` \| `read`. Enforced by DB check constraint `ck_reading_status_value`. |
 | `created_at` | TIMESTAMP | When the status was first set. |
 | `updated_at` | TIMESTAMP | When the status was last changed (e.g. progressed from `want_to_read` to `currently_reading`). |
 
@@ -231,7 +231,7 @@ Stores a user's star rating and optional review text for a book. One rating per 
 | `user_id` | UUID FK → `app_users` | CASCADE delete. |
 | `book_id` | INT FK → `books` | CASCADE delete. Indexed (`ix_book_ratings_book_id`) for fast "all ratings for book" queries. |
 | `rating` | INT 1–5 | DB check constraint enforces the range. Ratings ≥ 4 are used as seed books for the For You preference vector. |
-| `review_text` | TEXT | Nullable. Max 1000 chars (enforced frontend only). When present, triggers a review re-embed after every 5 new reviews (`REVIEW_EMBED_BATCH_SIZE`). |
+| `review_text` | TEXT | Nullable. Max 1000 chars (enforced frontend only). When present, triggers a review re-embed on the book's first review, then after every 5 new reviews (`REVIEW_EMBED_BATCH_SIZE`). |
 | `created_at` | TIMESTAMP | When the rating was first submitted. |
 | `updated_at` | TIMESTAMP | When the rating was last edited (upsert semantics). |
 
@@ -301,6 +301,7 @@ The composite PK on `(follower_id, followee_id)` is backed by a unique constrain
 | `book_tropes` | CHECK `weight` | `0.0 ≤ weight ≤ 1.0` |
 | `character_dna` | CHECK `importance` | `1 ≤ importance ≤ 10` |
 | `book_ratings` | CHECK `rating` | `1 ≤ rating ≤ 5` |
+| `reading_statuses` | CHECK `status` | One of `want_to_read`, `currently_reading`, `read` |
 | `user_book_tropes` | CHECK `weight` | `0.0 ≤ weight ≤ 1.0` |
 | `user_book_archetypes` | CHECK `importance` | `1 ≤ importance ≤ 10` |
 | `user_follows` | UNIQUE `(follower_id, followee_id)` | Can't follow the same user twice |

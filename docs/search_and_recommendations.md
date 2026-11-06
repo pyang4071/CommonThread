@@ -82,11 +82,11 @@ This means books that readers *describe similarly* get a small boost on top of s
 
 ### For You (`/recommendations/for-you`)
 
-This is the full pipeline — eight steps.
+This is the full pipeline — nine steps. All DB queries run sequentially on one `AsyncSession` (concurrent operations on a single session are not permitted).
 
 **Step 1 — Build the exclude set**
 
-Three queries run in parallel to collect every book ID the user should never see again:
+Three queries collect every book ID the user should never see again:
 - All rated books (any rating)
 - All books marked "read"
 - All disliked books
@@ -124,9 +124,13 @@ The genome embeddings of all disliked books are loaded and unit-normalized. For 
 
 **Step 6 — Diversity re-ranking**
 
-Without this step, the top 10 results could all be books with the same dominant trope category (e.g. ten epic fantasies). The re-ranker loads each candidate's tropes, identifies the dominant category, and caps how many books from the same category can appear in the final results.
+Without this step, the top 10 results could all be books with the same dominant trope category (e.g. ten epic fantasies). The re-ranker finds each candidate's dominant category (the category of its highest-weight trope) and allows at most `max(2, (limit + 3) // 4)` books per category. Candidates over the cap go to an overflow list that is only used if there aren't enough diverse picks. The embedding path fills `limit − limit // 3` slots (about two thirds); the rest are reserved for step 9.
 
-**Step 7 — Review re-scoring**
+**Step 7 — Series order gate**
+
+A candidate that is book 2+ in a series (`series_position > 1`) is dropped unless the user already has some book from that series on their shelf. This keeps the engine from recommending the middle of a series the user hasn't started.
+
+**Step 8 — Review re-scoring**
 
 For candidates that have a `review_embedding`, a final score blend is applied:
 
@@ -136,8 +140,14 @@ final_score = 0.85 × embedding_score + 0.15 × review_cosine(candidate, review_
 
 Books without a review embedding are unaffected — their embedding score is used as-is. This rewards books that readers describe in ways consistent with how the user's liked books are described.
 
-**Step 8 — Collaborative filtering**
+**Step 9 — Collaborative filtering**
 
-Up to one third of the final results can come from a collaborative signal: other users with similar taste profiles (measured by genome cosine similarity of their own preference vectors) who have highly rated books the current user hasn't seen. This adds serendipity — books that don't score highest on pure similarity but are consistently loved by readers with similar taste.
+Up to `limit // 3` results come from a collaborative signal based on **rating overlap** (no vectors are involved):
 
-The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's history, and whether the source was `"embedding"` or `"collaborative"`. The Home page shows the top 8 with a "See all →" link to `/for-you` which fetches up to 50.
+1. *Similar users* are other users who rated at least 2 of this user's seed books ≥ 4 stars, ordered by how many they share (top 50).
+2. Their ≥ 4-star books that the user hasn't already rated/read/disliked and that aren't already picked are ranked by average rating, then by count.
+3. Each collaborative pick is scored `avg_rating / 5`.
+
+Collaborative picks are placed **ahead of** the embedding picks in the merged list, then the list is truncated to `limit`. Note the seeds can come from the shelf fallback (step 2), but the overlap query only counts ratings, so a user with no ratings gets no collaborative picks. This adds serendipity — books that don't score highest on pure similarity but are consistently loved by readers with overlapping taste.
+
+The final results are returned with explanations: which tropes and archetypes the recommended book shares with the user's seed books, and a `source` of `"genome"`, `"description"` (whichever stream built the preference vector) or `"collaborative"`. The Home page shows the top 8 with a "See all →" link to `/for-you` which fetches up to 50.

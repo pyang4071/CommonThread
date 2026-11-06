@@ -331,14 +331,18 @@ See [schema.md](schema.md) for the full table-by-table schema with column descri
 
 ### Genome Text Format
 
+Built by `build_genome()` in `services/embedding.py` as a single line (wrapped here for reading). Tropes are sorted by weight and archetypes by importance, both descending; genres and tones are alphabetical.
+
 ```
 "Title" by Author.
-Tropes: 'Name' (0.85, dominant trope); 'Name' (0.45, supporting trope).
-Character archetypes: 'Name' (9/10 importance); 'Name' (5/10 importance).
+Tropes: 'Name' (0.85, dominant), 'Name' (0.45, moderate).
+Character archetypes: 'Name' (9/10), 'Name' (5/10).
 Genres: Fantasy, Romance.
 Tone: Dark, Witty.
-Pacing: 4/5.
+Pacing: fast.
 ```
+
+Strength labels: ≥ 0.8 dominant, ≥ 0.6 strong, ≥ 0.4 moderate, else subtle. Pacing is rendered as a word (very slow / slow / moderate / fast / very fast).
 
 ### Hybrid Search Scoring (RRF)
 
@@ -365,12 +369,13 @@ score = alpha × rrf(lex_rank) + (1 − alpha) × rrf(sem_rank)
 3. Genome is additionally embedded only when trope count ≥ 3
 4. Removing a trope that drops count below 3 clears only `genome_embedding` — status stays `done`
 
-Books without genome embedding appear in hybrid and keyword search but are excluded from Similar Books and For You (both require `genome_embedding IS NOT NULL`).
+Books without a genome embedding still appear in hybrid and keyword search. They are **not** excluded from recommendations: Similar Books falls back to the description stream when the source book has no genome, and For You falls back to description when none of the user's seed books have a genome. A book without a genome can't show up as a *candidate* when the genome stream is used, though, because the ANN query filters on `genome_embedding IS NOT NULL`.
 
 ### Batch Processing
 
-- Chunk size: 32 books
-- Within each chunk, genome-eligible books run genome + description concurrently (`asyncio.gather`); description-only books run description alone
+- Chunk size: 4 books (`embed_books_batch(batch_size=4)`), kept small to bound memory on the Railway instance
+- Within each chunk, description texts are batch-encoded first, then genome texts. The two models run one after another, not concurrently
+- 0.5 s pause between chunks
 - DB committed after each chunk — partial progress is preserved
 - Status per book: `done` or `failed`
 - Admin **Embed All** queues books with `embedding_status != "done"` **or** `description IS NOT NULL AND description_embedding IS NULL` — catches books where status is `done` but description was added/updated after the last embed
@@ -381,20 +386,25 @@ Books without genome embedding appear in hybrid and keyword search but are exclu
 
 ### For You (`/recommendations/for-you`)
 
-1. Collect user's books: ratings ≥ 4 stars **plus** all shelf entries
-2. Aggregate personal trope/archetype tags across those books (avg weight / avg importance)
-3. Build a taste genome string in the same format as a book genome
-4. Embed taste genome via genome model
-5. Run pgvector cosine similarity search against all `done` books
-6. Exclude books already rated or on shelf, and books the user has disliked
-7. **Review re-scoring**: mean-pool `review_embedding` for the user's high-rated books into a review preference vector; after diversity/series gating, re-score candidates at `0.85 * emb_score + 0.15 * review_cosine` when the candidate has a review embedding (fallback: emb_score unchanged)
-8. Return top-N with explanation: `{shared_tropes[], shared_archetypes[], source: "embedding"}`
+See [search_and_recommendations.md](search_and_recommendations.md#for-you-recommendationsfor-you) for the full walkthrough. In short:
+
+1. **Exclude** books the user has rated (any score), marked `read`, or disliked. Want-to-read / currently-reading books are *not* excluded
+2. **Seeds**: books rated ≥ 4 stars; if none, fall back to want-to-read + currently-reading shelf; if still none, return `[]`
+3. **Preference vector**: mean of the seeds' genome embeddings, blended `0.7 × mean + 0.3 × taste` where *taste* is the user's aggregated personal tags rendered as a genome-style string and embedded with the genome model. If no seed has a genome, use the mean of their description embeddings instead (no taste blend)
+4. **ANN**: pgvector cosine search for `limit × 5` candidates on the chosen stream
+5. **Dislike penalty**: drop candidates with genome cosine ≥ 0.82 to any disliked book
+6. **Diversity**: at most `max(2, (limit + 3) // 4)` books per dominant trope category; embedding picks fill about two thirds of the slots
+7. **Series gate**: drop book 2+ of a series the user hasn't started
+8. **Review re-scoring**: `0.85 × score + 0.15 × review_cosine` when a review preference vector and the candidate's `review_embedding` both exist
+9. **Collaborative**: up to `limit // 3` picks from users who rated ≥ 2 of the same seed books ≥ 4 stars; these go first in the merged list
+10. Return top-N with explanation: `{shared_tropes[], shared_archetypes[], source: "genome" | "description" | "collaborative"}`
 
 ### Similar Books (`/recommendations/{book_id}/similar`)
 
-1. Retrieve top candidates via pgvector cosine distance on genome (or description) embedding
+1. Retrieve `limit × 4` candidates via pgvector cosine distance on genome (or description, if the source has no genome) embedding
 2. Compute sparse cosine similarity using `book_tropes.weight` and `character_dna.importance / 10` feature vectors
-3. **Three-stream blend**: `score = 0.5 * emb + 0.5 * sparse` baseline; when both source and candidate have `review_embedding`, shifts to `0.80 * base + 0.20 * review_cosine`
+3. **Genome/description blend**: when the source has both embeddings, `emb = g_w × genome_cos + (1 − g_w) × desc_cos` with `g_w = min(trope_count / 8, 1)`
+4. **Three-stream blend**: `score = 0.5 * emb + 0.5 * sparse` baseline; when both source and candidate have `review_embedding`, shifts to `0.80 * base + 0.20 * review_cosine`
 4. Exclude the source book itself
 5. Return top-N with explanation including shared tropes/archetypes
 
@@ -406,7 +416,7 @@ Books without genome embedding appear in hybrid and keyword search but are exclu
 
 1. If book has ISBN → probe `covers.openlibrary.org/b/isbn/{isbn}-L.jpg` directly
 2. Fallback → search OpenLibrary by title + author → use first result's cover ID
-3. Retry policy: up to 3 attempts with exponential back-off (1 s → 2 s → 4 s) on network/HTTP errors
+3. Retry policy: up to 3 attempts with exponential back-off (waits 1 s, then 2 s) on network/HTTP errors
 4. Clean "no cover" (404 / empty search results) treated as final — not retried
 5. Sets `books.cover_url` on success
 
@@ -432,15 +442,17 @@ Description embedding runs for all books; genome embedding additionally requires
 
 | Event | Description embeds? | Genome embeds? |
 |---|---|---|
-| Book created | Yes — queued immediately | Only if already ≥ 3 tropes (rare at creation) |
-| Book metadata updated | Yes | Yes, if trope count ≥ 3 |
+| Book created | Yes — queued immediately | No — tropes are attached in separate calls after creation, and the attach that reaches 3 triggers it |
+| Book metadata updated | Yes (description-only re-embed when < 3 tropes) | Yes, if trope count ≥ 3 |
 | Trope attached (count reaches 3) | Yes | Yes — threshold commit |
 | User crowd-promotes a trope/archetype | — | Yes — genome re-embeds with new canonical entry |
 | User tag removed (canonical weight changes) | — | Yes — genome re-embeds with updated median weight |
 | Trope attached (count already ≥ 3) | Yes | Yes — re-embed with updated trope set |
 | Trope detached (count still ≥ 3) | Yes | Yes — re-embed |
 | Trope detached (count drops below 3) | No (keeps existing) | Clears `genome_embedding`; status stays `done` |
-| Archetype / genre / tone attached or detached | Yes | Yes, if trope count ≥ 3 |
+| Archetype / genre / tone attached or detached | Yes, if trope count ≥ 3 | Yes, if trope count ≥ 3 |
+| Book type attached or detached | No | No — book types are not part of the genome string |
+| Review saved | — | — (review stream re-embeds on the first review, then every `REVIEW_EMBED_BATCH_SIZE` = 5 new reviews) |
 | Trope or archetype master record deleted | Yes | Re-embeds affected books that still have ≥ 3 tropes |
 
 ### Model Pre-warm
@@ -674,7 +686,7 @@ Tagging progress is checkpointed in `backend/webscraper/output/tagging_progress.
 
 ### SQLAlchemy Async — Eager Loading Required
 
-All relationships accessed in async route handlers must use explicit `selectinload()` or `joinedload()`. SQLAlchemy async does not support implicit lazy loading — accessing a relationship outside an `await`-able context raises `MissingGreenlet`. See `error_log.md` for details.
+All relationships accessed in async route handlers must use explicit `selectinload()` or `joinedload()`. SQLAlchemy async does not support implicit lazy loading — accessing a relationship outside an `await`-able context raises `MissingGreenlet`. See the local `docs/error_log.local.md` for details.
 
 ### React Router — Data Router Required
 

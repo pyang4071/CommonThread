@@ -43,8 +43,8 @@ async def _embed_in_background(book_id: int, max_attempts: int = 3) -> None:
                     return
                 await embed_book(book_id, db)
                 # Post-guard: if a detach raced with us and count is now below threshold,
-                # clear the genome embedding so the book no longer appears in vibe/similarity
-                # search. Description embedding and 'done' status are preserved.
+                # clear the genome embedding so the book drops out of similar books / For You.
+                # Description embedding and 'done' status are preserved.
                 count_after = await _trope_count(db, book_id)
                 if count_after < settings.TROPE_THRESHOLD:
                     book_obj = await db.get(Book, book_id)
@@ -196,7 +196,12 @@ async def update_book(book_id: int, data: BookUpdate, db: AsyncSession = Depends
     updated = await crud.book.update_book(db, book, data)
     count = await _trope_count(db, book_id)
     if count >= settings.TROPE_THRESHOLD:
+        # embed_book re-embeds both the genome and the description.
         asyncio.create_task(_embed_in_background(book_id))
+    else:
+        # Below the genome threshold, still keep the description vector in
+        # sync — otherwise an edited description leaves a stale embedding.
+        asyncio.create_task(_embed_description_in_background(book_id))
     return updated
 
 
@@ -240,7 +245,7 @@ async def detach_trope(book_id: int, trope_id: int, db: AsyncSession = Depends(g
         asyncio.create_task(_embed_in_background(book_id))
     else:
         # Dropped below threshold — clear genome so the book no longer appears in
-        # vibe/similarity search. Description embedding and 'done' status are kept
+        # similarity/recommendations. Description embedding and 'done' status are kept
         # so the book remains in hybrid/lexical search.
         book_obj = await db.get(Book, book_id)
         if book_obj and book_obj.genome_embedding is not None:

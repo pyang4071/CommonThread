@@ -5,7 +5,6 @@ Covers:
   - ORM model fields (review_embedding, is_crowd_promoted)
   - embed_description_only — no-op when no description, writes column when description exists
   - embed_reviews_for_book — no-op when no reviews, concatenates and embeds when reviews exist
-  - map_subjects_to_genres — subject → genre name mapping
   - get_similar_books — description fallback when no genome embedding
   - get_recommendations_for_user — description fallback when user's liked books have no genome
 
@@ -17,48 +16,6 @@ Set DATABASE_URL in backend/.env before running.
 import pytest
 import numpy as np
 from unittest.mock import AsyncMock, MagicMock, patch
-
-from scripts.import_books import map_subjects_to_genres
-
-
-# ── Subject mapping (pure unit tests, no DB) ──────────────────────────────────
-
-class TestMapSubjectsToGenres:
-    def test_exact_match(self):
-        assert map_subjects_to_genres(["fantasy"]) == ["Fantasy"]
-
-    def test_case_insensitive(self):
-        assert map_subjects_to_genres(["Fantasy"]) == ["Fantasy"]
-        assert map_subjects_to_genres(["SCIENCE FICTION"]) == ["Science Fiction"]
-
-    def test_multiple_subjects_deduplicates(self):
-        result = map_subjects_to_genres(["fantasy", "epic fantasy", "fantasy fiction"])
-        assert result == ["Fantasy"]  # all map to same genre, deduped
-
-    def test_multi_genre_result(self):
-        result = map_subjects_to_genres(["detective and mystery stories", "crime fiction"])
-        assert "Mystery" in result
-        assert "Crime" in result
-
-    def test_unknown_subject_ignored(self):
-        assert map_subjects_to_genres(["alchemy", "dragons", "made up subject"]) == []
-
-    def test_empty_input(self):
-        assert map_subjects_to_genres([]) == []
-
-    def test_mixed_known_unknown(self):
-        result = map_subjects_to_genres(["fantasy", "totally unknown"])
-        assert result == ["Fantasy"]
-
-    def test_variant_subjects(self):
-        assert map_subjects_to_genres(["dystopian fiction"]) == ["Science Fiction"]
-        assert map_subjects_to_genres(["love stories"]) == ["Romance"]
-        assert map_subjects_to_genres(["autobiographies"]) == ["Biography"]
-        assert map_subjects_to_genres(["comic books, strips, etc."]) == ["Graphic Novel"]
-
-    def test_returns_sorted(self):
-        result = map_subjects_to_genres(["thriller", "fantasy", "romance"])
-        assert result == sorted(result)
 
 
 # ── ORM model fields ──────────────────────────────────────────────────────────

@@ -13,7 +13,7 @@
 887 books are live in the database with tropes, archetypes, genres, tones,
 book types, pacing, and genome+description embeddings applied. That's fewer than the
 1,262 in the tagging checkpoint above — some tagged books haven't been imported/embedded
-yet, and the [1,240-duplicate cleanup](../docs/error_log.md) removed some along the way.
+yet, and the 1,240-duplicate cleanup (see the local, git-ignored `docs/error_log.local.md`) removed some along the way.
 
 `tagging_progress.json` holds the checkpoint. On resume, read it and skip any
 `ol_work_key` already in `completed_ol_work_keys` — do **not** re-tag books that

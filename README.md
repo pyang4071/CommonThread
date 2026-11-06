@@ -53,7 +53,7 @@ CommonThread/
 │   ├── features.md         ← Full feature reference + API docs
 │   ├── schema.md           ← Database schema — every table and column explained
 │   ├── search_and_recommendations.md  ← Search and recommendation system deep-dive
-│   └── error_log.md        ← Dev error log
+│   └── security_inc.md     ← Incident report: session tokens committed to git
 ├── e2e/                    ← Playwright end-to-end tests
 │   ├── tests/              # 13 spec files, 135 tests
 │   ├── global-setup.ts     # Magic-link auth setup
@@ -68,7 +68,7 @@ CommonThread/
 │   │   ├── crud/           # Data access layer
 │   │   └── services/       # Embedding, similarity, cover fetching
 │   ├── migrations/         # Alembic migration history
-│   ├── scripts/            # seed, import_tagged_books, embed_all
+│   ├── scripts/            # import_tagged_books, embed_all_books, merge_genres
 │   ├── webscraper/         # Open Library async scraper
 │   ├── parse_books.md      # Book tagging workflow + resumption guide
 │   └── reference_data.md   # Taxonomy reference (tropes, archetypes, genres, etc.)
